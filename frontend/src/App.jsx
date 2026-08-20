@@ -95,11 +95,12 @@ function ChartCard({ title, icon: Icon, color, value, unit, data }) {
 }
 
 export default function App() {
-  const [status, setStatus] = useState('Disconnected');
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeProfile, setActiveProfile] = useState('BALANCED');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [status, setStatus] = useState('Waiting for Edge Node...');
+  const [deployScore, setDeployScore] = useState(86);
   const [sessionUptime, setSessionUptime] = useState(0);
   
   const [telemetry, setTelemetry] = useState({
@@ -152,7 +153,7 @@ export default function App() {
     const connect = () => {
       const ws = new WebSocket('wss://npu-trace-backend.onrender.com/ws/telemetry');
       wsRef.current = ws;
-      ws.onopen = () => setStatus('Connected');
+      ws.onopen = () => setStatus('Waiting for Edge Node...');
       ws.onmessage = (event) => {
         if (demoMode) return;
         const msg = JSON.parse(event.data);
@@ -266,6 +267,16 @@ export default function App() {
         setDemoMode(prev => !prev);
         return;
       }
+      if (e.key === 'C' && e.shiftKey) {
+        setTelemetry({
+          npu: Array(MAX_DATA_POINTS).fill(0),
+          temp: Array(MAX_DATA_POINTS).fill(0),
+          latency: Array(MAX_DATA_POINTS).fill(0),
+          battery: 0,
+          batteryData: Array(MAX_DATA_POINTS).fill(0)
+        });
+        return;
+      }
       switch(e.key) {
         case '1': setCurrentView('dashboard'); break;
         case '2': setCurrentView('history'); break;
@@ -290,18 +301,20 @@ export default function App() {
 
   useEffect(() => {
     if (demoMode) {
-      setAlerts(prev => [...prev, { id: Date.now(), text: "FAILSAFE DEMO MODE ACTIVATED", type: 'alert' }]);
-      setStatus("Connected");
+      setStatus("Connected (SIM)");
       
-      let baseNpu = 20;
-      let baseTemp = 40;
-      let isSpike = false;
+      let baseNpu = 95; // Instant spike
+      let baseTemp = 85;
+      let isSpike = true;
       let tick = 0;
 
       demoIntervalRef.current = setInterval(() => {
         tick++;
-        
-        // Randomly simulate a heavy spike every ~15 seconds
+        if (tick > 5) {
+          isSpike = false;
+          baseNpu = 20;
+          baseTemp = 40;
+        }// Randomly simulate a heavy spike every ~15 seconds
         if (tick % 15 === 0) isSpike = true;
         if (tick % 15 === 5) isSpike = false;
         

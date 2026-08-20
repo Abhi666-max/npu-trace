@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Monitor, Smartphone, Activity } from 'lucide-react';
 
 export default function NodeTopology({ status, demoMode }) {
-  const isConnected = status === 'Connected' || demoMode;
+  const isConnected = status.includes('Connected') || demoMode;
 
   return (
     <div className="w-full flex items-center justify-between mt-4 px-2 mb-2">
