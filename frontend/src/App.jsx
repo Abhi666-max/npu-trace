@@ -128,7 +128,7 @@ export default function App() {
     formData.append('file', file);
     
     try {
-      const res = await fetch('http://localhost:8000/api/upload', {
+      const res = await fetch('https://npu-trace-backend.onrender.com/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -150,7 +150,7 @@ export default function App() {
   useEffect(() => {
     let reconnectTimeout;
     const connect = () => {
-      const ws = new WebSocket('ws://localhost:8000/ws/telemetry');
+      const ws = new WebSocket('wss://npu-trace-backend.onrender.com/ws/telemetry');
       wsRef.current = ws;
       ws.onopen = () => setStatus('Connected');
       ws.onmessage = (event) => {
@@ -218,7 +218,7 @@ export default function App() {
   useEffect(() => {
     let interval;
     const fetchHistory = () => {
-      fetch('http://localhost:8000/api/history/telemetry?limit=50')
+      fetch('https://npu-trace-backend.onrender.com/api/history/telemetry?limit=50')
         .then(res => res.json())
         .then(data => setHistoryData(data))
         .catch(console.error);
@@ -239,7 +239,7 @@ export default function App() {
     
     // Anti-Sleep Keep-Alive Ping (Runs every 4 minutes to keep backend awake on free tiers)
     const keepAliveInterval = setInterval(() => {
-      fetch('http://localhost:8000/api/ping').catch(() => {});
+      fetch('https://npu-trace-backend.onrender.com/api/ping').catch(() => {});
     }, 240000);
 
     return () => {
@@ -486,11 +486,9 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
                 <p className="text-sm text-[#888] font-mono">Open camera on your iQOO device to connect as telemetry sensor.</p>
               </div>
               <div className="bg-white p-4 rounded-xl">
-                <QRCodeSVG value={`http://${window.location.hostname}:8000/mobile.html`} size={200} />
+                <QRCodeSVG value="https://npu-trace-backend.onrender.com/mobile.html" size={200} />
               </div>
-              <p className="text-xs text-[#666] font-mono mt-4 break-all text-center">
-                http://{window.location.hostname}:8000/mobile.html
-              </p>
+              <span className="text-[10px] font-mono text-[#666]">https://npu-trace-backend.onrender.com/mobile.html</span>
             </div>
           </motion.div>
         )}
