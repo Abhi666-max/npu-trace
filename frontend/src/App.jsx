@@ -14,7 +14,7 @@ import {
 } from 'chart.js';
 import { 
   Activity, Zap, Thermometer, List, Terminal, 
-  AlertTriangle, Play, LayoutDashboard, History, Settings, ChevronRight, Cpu, Menu, X, Download, Shield
+  AlertTriangle, Play, LayoutDashboard, History, Settings, ChevronRight, Cpu, Menu, X, Download, Shield, Battery
 } from 'lucide-react';
 import { FaGithub, FaLinkedin, FaTwitter, FaInstagram } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -96,12 +96,15 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeProfile, setActiveProfile] = useState('BALANCED');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [sessionUptime, setSessionUptime] = useState(0);
   
   const [telemetry, setTelemetry] = useState({
     npu: Array(MAX_DATA_POINTS).fill(0),
     latency: Array(MAX_DATA_POINTS).fill(0),
     temp: Array(MAX_DATA_POINTS).fill(0),
     battery: 0,
+    batteryData: Array(MAX_DATA_POINTS).fill(0),
   });
   const [logs, setLogs] = useState([]);
   const [alerts, setAlerts] = useState([]);
@@ -130,7 +133,8 @@ export default function App() {
             npu: [...prev.npu.slice(1), msg.data.npu_load_pct],
             latency: [...prev.latency.slice(1), msg.data.token_latency_ms],
             temp: [...prev.temp.slice(1), msg.data.chip_temp_celsius],
-            battery: msg.data.battery_drain_ma
+            battery: msg.data.battery_drain_ma,
+            batteryData: [...(prev.batteryData || Array(MAX_DATA_POINTS).fill(0)).slice(1), msg.data.battery_drain_ma]
           }));
         } else if (msg.type === "log") {
           const time = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -184,6 +188,34 @@ export default function App() {
   }, [currentView]);
 
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  useEffect(() => {
+    // Session uptime timer
+    const uptimeInterval = setInterval(() => {
+      setSessionUptime(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(uptimeInterval);
+  }, []);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (showWelcome) return; // Ignore if on welcome screen
+      
+      switch(e.key) {
+        case '1': setCurrentView('dashboard'); break;
+        case '2': setCurrentView('history'); break;
+        case '3': setCurrentView('terminal'); break;
+        case '4': setCurrentView('settings'); break;
+        case 's': 
+        case 'S': 
+          triggerStressTest(); break;
+        default: break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showWelcome]);
+
   useEffect(() => {
     if (currentView === 'history') {
       const tick = setInterval(() => setLastRefresh(new Date()), 1000);
@@ -255,6 +287,40 @@ export default function App() {
     { id: 'terminal', icon: Terminal, label: 'AI Build Logs' },
     { id: 'settings', icon: Settings, label: 'Hardware Config' },
   ];
+
+  const formatUptime = (seconds) => {
+    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  };
+
+  if (showWelcome) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-[#050505] font-sans overflow-hidden scanlines">
+        <div className="flex flex-col items-center gap-6 z-10 p-8">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#FBBF24] to-[#d97706] flex items-center justify-center rounded-sm glitch-btn shadow-[0_0_30px_rgba(251,191,36,0.4)] mb-4">
+            <Activity className="w-10 h-10 text-black" />
+          </div>
+          <div className="text-center">
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-white uppercase italic leading-none drop-shadow-md mb-2">
+              NPU TRACE
+            </h1>
+            <p className="text-[#FBBF24] font-mono tracking-[0.3em] uppercase text-sm md:text-base font-bold">
+              AI-Powered Edge Deployment Intelligence
+            </p>
+          </div>
+          <button 
+            onClick={() => setShowWelcome(false)}
+            className="mt-8 px-8 py-4 bg-[#FBBF24]/10 border border-[#FBBF24]/50 text-[#FBBF24] font-black uppercase tracking-widest hover:bg-[#FBBF24]/20 hover:scale-105 transition-all duration-300 relative group overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-[#FBBF24] opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            ENTER DASHBOARD
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen flex font-sans antialiased overflow-hidden text-[#ededed] bg-transparent relative">
@@ -360,6 +426,10 @@ export default function App() {
             <h2 className="text-xs lg:text-sm font-mono font-bold text-[#888] uppercase tracking-widest">
               {navItems.find(i => i.id === currentView)?.label}
             </h2>
+            <div className="hidden md:flex items-center gap-2 ml-4 px-3 py-1 bg-[#111] border border-[#222] rounded-sm">
+              <span className="text-[10px] font-bold text-[#666] tracking-widest uppercase">SESSION:</span>
+              <span className="text-[10px] font-mono font-bold text-[#FBBF24]">{formatUptime(sessionUptime)}</span>
+            </div>
           </div>
           
           <div className="flex items-center gap-2 lg:gap-5">
@@ -393,11 +463,12 @@ export default function App() {
                 >
                 {/* Top Row: Metrics + Deploy Score */}
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4 shrink-0">
-                  <div className="col-span-2 lg:col-span-2">
-                    <ChartCard title="NPU Grid Load" icon={Activity} color={IQOO_GOLD} value={telemetry.npu[telemetry.npu.length - 1]} unit="%" data={telemetry.npu} />
+                  <div className="col-span-2 lg:col-span-1">
+                    <ChartCard title="NPU Load" icon={Activity} color={IQOO_GOLD} value={telemetry.npu[telemetry.npu.length - 1]} unit="%" data={telemetry.npu} />
                   </div>
                   <ChartCard title="Token Latency" icon={Zap} color="#34d399" value={telemetry.latency[telemetry.latency.length - 1]} unit="ms" data={telemetry.latency} />
                   <ChartCard title="Chip Temp" icon={Thermometer} color={telemetry.temp[telemetry.temp.length - 1] > 80 ? IQOO_RED : '#f97316'} value={telemetry.temp[telemetry.temp.length - 1]} unit="°C" data={telemetry.temp} />
+                  <ChartCard title="Battery Drain" icon={Battery} color="#60a5fa" value={telemetry.battery} unit="mA" data={telemetry.batteryData} />
                   
                   {/* Deploy Readiness Score */}
                   <div className="hud-panel p-4 lg:p-5 flex flex-col items-center justify-center h-[160px] shrink-0 col-span-2 lg:col-span-1">
