@@ -544,7 +544,7 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
           </button>
         </div>
         
-        <div className="flex-1 py-8 flex flex-col gap-2 px-4">
+        <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-2 px-4 scrollbar-hide">
           <span className="text-[10px] font-bold text-[#666] uppercase tracking-[0.2em] mb-2 ml-2">System Ops</span>
           {navItems.map(item => (
             <button
@@ -562,7 +562,7 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
           ))}
         </div>
 
-        <div className="p-6 border-t border-[#333] mt-auto bg-gradient-to-t from-[#FBBF24]/5 to-transparent relative overflow-hidden group">
+        <div className="p-4 lg:p-6 border-t border-[#333] mt-auto bg-gradient-to-t from-[#FBBF24]/5 to-transparent relative overflow-hidden group shrink-0">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IiMzMzMiLz48L3N2Zz4=')] opacity-20 group-hover:opacity-40 transition-opacity"></div>
           <div className="relative z-10 flex flex-col gap-4">
             <button 
@@ -588,7 +588,7 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
               </div>
             </div>
           </div>
-          <div className="pt-4 border-t border-[#222] flex flex-col gap-3 relative z-10">
+          <div className="pt-3 border-t border-[#222] flex flex-col gap-2 relative z-10">
             <span className="text-xs font-black text-white uppercase tracking-widest text-center italic mt-2">
               Abhijeet Kangane
             </span>
