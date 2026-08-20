@@ -1,129 +1,91 @@
-# ⚡ NPU TRACE — AI Optimizer
+# NPU Trace
 
-> Real-time Edge AI Hardware Telemetry, AI Code Healer, Auto-Quantizer, and Hardware Profile Manager.
+NPU Trace is an AI-powered telemetry bridge and code healing platform designed for edge devices. It enables real-time hardware monitoring (NPU load, temperature, token latency, battery drain) via WebSockets and integrates LLM-based autonomous code optimization for hardware-specific constraints.
 
-![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal?logo=fastapi)
-![React](https://img.shields.io/badge/React-19-blue?logo=react)
-![Vite](https://img.shields.io/badge/Vite-6-purple?logo=vite)
-![WebSocket](https://img.shields.io/badge/WebSocket-60fps-green)
-![Tailwind](https://img.shields.io/badge/TailwindCSS-3.4-cyan?logo=tailwindcss)
+Built as a submission for the iQOO Hackathon.
 
----
+## Architecture & Workflow
 
-## 🎯 Problem Statement
+The platform operates through a two-way telemetry bridge:
+1. **Edge Client**: A lightweight client running on an edge device (e.g., iQOO phone) that streams hardware metrics via a WebSocket connection.
+2. **Host IDE**: A local dashboard that visualizes the incoming data streams and acts as a code dropzone. 
+3. **AI Code Healer**: A background worker that monitors dropped scripts (`.py`, `.onnx`, `.pt`), intercepts errors or sub-optimal patterns (e.g., lack of quantization), and utilizes an LLM (Llama3-8b) to suggest and apply optimized code fixes dynamically.
 
-**"Build tools that help developers create, test, deploy, or collaborate faster using AI."**
+## Tech Stack
 
-Edge AI developers deploying models on mobile NPUs (like iQOO's Snapdragon NPU) face critical blind spots:
-- No real-time visibility into NPU load, thermal throttling, or token latency
-- No automated code quality checks optimized for on-device inference
-- No way to test how models perform under different power profiles before shipping
+**Frontend:**
+- React 18
+- Vite
+- TailwindCSS (Styling & Animations)
+- Framer Motion (Transitions)
+- Chart.js (Telemetry Visualization)
 
-**NPU Trace** solves all three — a real-time AI-powered developer tool for edge deployment.
+**Backend:**
+- Python 3
+- FastAPI (WebSocket Server & API Routing)
+- Watchdog (File System Monitoring)
+- Groq API (Llama3-8b for AI Code Healing)
 
----
+## Directory Structure
 
-## 🚀 Features
-
-### 1. Live HUD Dashboard
-Real-time 60fps telemetry visualization — NPU Load, Token Latency, Chip Temperature, Battery Drain — all streamed via WebSocket.
-
-### 2. AI Auto-Quantizer (Deploy Faster)
-Drop a `.pt` or `.onnx` model file into `/target_builds` → The Watchdog auto-detects it, runs topology analysis, and triggers INT8 quantization for edge NPU deployment.
-
-### 3. AI Code Healer (Create & Test Faster)
-Drop a `.py` file → NPU Trace reads your code, detects performance bottlenecks (memory leaks, missing GC), shows a side-by-side Code Diff, and lets you **Apply AI Fix** with one click — rewriting your file in-place.
-
-### 4. Hardware Profile Manager (Test Faster)
-Switch between **ECO** / **BALANCED** / **PERFORMANCE** NPU profiles in real-time. Watch the Live HUD metrics shift instantly — test how your AI model behaves under different battery/performance constraints.
-
-### 5. Deploy Readiness Score
-AI-calculated 0-100 score based on latency + temperature + NPU load + hardware profile. Green = safe to ship. Red = optimize first.
-
-### 6. Stress Test & Anomaly Detection
-Click "Simulate Raw AI Workload" to spike NPU to 100%. Backend monitors for thermal throttling (>80°C) and sends real-time CRITICAL alerts.
-
-### 7. Performance Report Export
-One-click JSON report with session metrics, optimizations applied, anomalies detected, and deploy verdict. Share with your team.
-
----
-
-## 🏗️ Architecture
-
-```
-┌──────────────┐    WebSocket (60fps)    ┌──────────────────┐
-│  React/Vite  │ ◄──────────────────────► │  FastAPI Server   │
-│  Gaming HUD  │                          │  + SQLite DB      │
-│  + Charts    │                          │  + Watchdog       │
-└──────────────┘                          └────────┬─────────┘
-                                                   │
-                                          ┌────────▼─────────┐
-                                          │  Mock Telemetry   │
-                                          │  Client (60fps)   │
-                                          │  + Profile States │
-                                          └──────────────────┘
+```text
+npu-trace/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── NodeTopology.jsx
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+├── static/
+│   ├── app.js
+│   ├── index.html
+│   └── mobile.html
+├── .env
+├── .gitignore
+├── directory_tracker.py
+├── main.py
+├── mock_telemetry_client.py
+└── README.md
 ```
 
----
+## Setup & Local Development
 
-## 🛠️ Tech Stack
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/Abhi666-max/npu-trace.git
+   cd npu-trace
+   ```
 
-| Layer | Technology |
-|---|---|
-| **Frontend** | React 19, Vite 6, Chart.js, Framer Motion, TailwindCSS 3.4 |
-| **Backend** | Python 3.12, FastAPI, Uvicorn, SQLAlchemy, Watchdog |
-| **Database** | SQLite (via SQLAlchemy ORM) |
-| **Protocol** | WebSocket (real-time bidirectional at 60fps) |
-| **Theme** | iQOO Esports Gaming HUD (AMOLED Black + Electric Gold) |
+2. **Backend Setup:**
+   ```bash
+   # Install dependencies (using uv or pip)
+   uv venv
+   uv pip install fastapi uvicorn watchdog groq python-multipart
+   
+   # Set environment variables
+   echo "GROQ_API_KEY=your_key_here" > .env
+   
+   # Run the server
+   uv run uvicorn main:app --host 0.0.0.0 --port 8000
+   ```
 
----
+3. **Frontend Setup:**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
-## ⚙️ Setup & Run
+4. **Testing Telemetry:**
+   You can either run `mock_telemetry_client.py` to simulate device metrics locally or scan the QR code in the dashboard using an edge device connected to the same network.
 
-### Prerequisites
-- Python 3.12+ with [uv](https://docs.astral.sh/uv/)
-- Node.js 18+
+## Credits
+- Designed and Developed by **Abhijeet Kangane**
+- GitHub: [Abhi666-max](https://github.com/abhi666-max)
+- LinkedIn: [abhijeet-kangane](https://www.linkedin.com/in/abhijeet-kangane/)
 
-### Backend
-```bash
-cd npu-trace
-uv sync
-uv run uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-### Mock Telemetry Client
-```bash
-uv run python mock_telemetry_client.py
-```
-
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open **http://localhost:5173** to see the dashboard.
-
----
-
-## 🎮 Demo Flow
-
-1. **Open Live HUD** → Watch real-time metrics stream
-2. **Click "Simulate Raw AI Workload"** → See NPU spike to 100%, thermal alerts fire
-3. **Go to Hardware Config** → Switch to PERFORMANCE mode → Watch metrics shift
-4. **Drop a `.py` file in `target_builds/`** → AI Code Healer detects and suggests fix
-5. **Click "Apply AI Fix"** → File is rewritten with optimized code
-6. **Click "Export Report"** → Download session performance JSON
-7. **Check Deploy Score** → Is your model ready to ship?
-
----
-
-## 📄 License
-
-MIT License — Built for iQOO Hackathon 2026
-
----
-
-**Built by [Abhijeet Kangane](https://github.com/Abhi666-max)**
+## License
+MIT License. See `LICENSE` for more information.
