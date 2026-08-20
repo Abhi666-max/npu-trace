@@ -14,7 +14,7 @@ import {
 } from 'chart.js';
 import { 
   Activity, Zap, Thermometer, List, Terminal, 
-  AlertTriangle, Play, LayoutDashboard, History, Settings, ChevronRight, Cpu
+  AlertTriangle, Play, LayoutDashboard, History, Settings, ChevronRight, Cpu, Menu, X, Download, Shield
 } from 'lucide-react';
 import { FaGithub, FaLinkedin, FaTwitter, FaInstagram } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -95,6 +95,7 @@ export default function App() {
   const [status, setStatus] = useState('Disconnected');
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeProfile, setActiveProfile] = useState('BALANCED');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const [telemetry, setTelemetry] = useState({
     npu: Array(MAX_DATA_POINTS).fill(0),
@@ -210,6 +211,44 @@ export default function App() {
     }
   };
 
+  // Deploy Readiness Score
+  const calcDeployScore = () => {
+    const lat = telemetry.latency[telemetry.latency.length - 1] || 50;
+    const tmp = telemetry.temp[telemetry.temp.length - 1] || 80;
+    const npu = telemetry.npu[telemetry.npu.length - 1] || 80;
+    let score = 0;
+    score += lat < 10 ? 25 : lat < 20 ? 18 : lat < 40 ? 10 : 0;
+    score += tmp < 50 ? 25 : tmp < 65 ? 18 : tmp < 80 ? 10 : 0;
+    score += npu < 40 ? 25 : npu < 60 ? 18 : npu < 80 ? 10 : 0;
+    score += activeProfile === 'ECO' ? 25 : activeProfile === 'BALANCED' ? 18 : 5;
+    return score;
+  };
+  const deployScore = calcDeployScore();
+
+  // Export Performance Report
+  const exportReport = () => {
+    const lat = telemetry.latency[telemetry.latency.length - 1];
+    const tmp = telemetry.temp[telemetry.temp.length - 1];
+    const npu = telemetry.npu[telemetry.npu.length - 1];
+    const report = {
+      project: 'NPU Trace AI Optimizer',
+      timestamp: new Date().toISOString(),
+      session: {
+        profile: activeProfile,
+        deployScore,
+        currentMetrics: { npuLoad: npu?.toFixed(1), latencyMs: lat?.toFixed(1), tempC: tmp?.toFixed(1), batteryMa: telemetry.battery },
+      },
+      optimizations: logs.filter(l => l.message.includes('AI ENGINE') || l.message.includes('CODE HEALER')).map(l => l.message),
+      anomalies: logs.filter(l => l.message.includes('CRITICAL')).map(l => `[${l.time}] ${l.message}`),
+      verdict: deployScore >= 80 ? 'DEPLOY READY' : deployScore >= 50 ? 'OPTIMIZATION NEEDED' : 'NOT SAFE TO DEPLOY'
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `npu-trace-report-${Date.now()}.json`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Live HUD' },
     { id: 'history', icon: History, label: 'Trace History' },
@@ -221,7 +260,7 @@ export default function App() {
     <div className="h-screen w-screen flex font-sans antialiased overflow-hidden text-[#ededed] bg-transparent relative">
       
       {/* Toast Notifications */}
-      <div className="fixed top-20 right-8 z-[100] flex flex-col gap-3">
+      <div className="fixed top-4 right-4 md:top-20 md:right-8 z-[100] flex flex-col gap-3 max-w-[90vw]">
         <AnimatePresence>
           {alerts.map(alert => (
             <motion.div
@@ -229,22 +268,27 @@ export default function App() {
               initial={{ opacity: 0, x: 50, scale: 0.9 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 50, scale: 0.9 }}
-              className={`border px-5 py-4 flex items-center gap-4 glitch-btn ${
+              className={`border px-4 py-3 flex items-center gap-3 glitch-btn ${
                 alert.type === 'success' 
                   ? 'bg-[#121c08] border-[#34d399] text-[#34d399] shadow-[0_0_20px_rgba(52,211,153,0.4)]' 
                   : 'bg-[#1a0505] border-red-600 text-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)]'
               }`}
             >
-              {alert.type === 'success' ? <Cpu className="w-6 h-6 animate-pulse" /> : <AlertTriangle className="w-6 h-6 animate-pulse" />}
-              <span className="font-mono text-sm font-bold tracking-widest uppercase">{alert.text}</span>
+              {alert.type === 'success' ? <Cpu className="w-5 h-5 animate-pulse shrink-0" /> : <AlertTriangle className="w-5 h-5 animate-pulse shrink-0" />}
+              <span className="font-mono text-xs font-bold tracking-wider uppercase">{alert.text}</span>
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
 
+      {/* Mobile Overlay */}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-[#050505]/80 backdrop-blur-md flex flex-col z-20 border-r border-[#222]">
-        <div className="p-6 border-b border-[#222]">
+      <aside className={`fixed lg:relative w-64 h-full bg-[#050505]/95 backdrop-blur-md flex flex-col z-40 border-r border-[#222] transition-transform duration-300 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+      }`}>
+        <div className="p-6 border-b border-[#222] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-gradient-to-br from-[#FBBF24] to-[#d97706] flex items-center justify-center rounded-sm glitch-btn shadow-[0_0_15px_rgba(251,191,36,0.4)]">
               <Activity className="w-5 h-5 text-black" />
@@ -258,6 +302,9 @@ export default function App() {
               </span>
             </div>
           </div>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-[#888] hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
         </div>
         
         <div className="flex-1 py-8 flex flex-col gap-2 px-4">
@@ -265,7 +312,7 @@ export default function App() {
           {navItems.map(item => (
             <button
               key={item.id}
-              onClick={() => setCurrentView(item.id)}
+              onClick={() => { setCurrentView(item.id); setSidebarOpen(false); }}
               className={`flex items-center gap-3 px-4 py-3 transition-all duration-200 text-sm font-bold uppercase tracking-wider ${
                 currentView === item.id 
                   ? 'bg-[#FBBF24]/10 border-l-4 border-[#FBBF24] text-[#FBBF24]' 
@@ -305,27 +352,33 @@ export default function App() {
       <main className="flex-1 flex flex-col relative z-10 overflow-hidden bg-transparent">
         
         {/* Top Header Bar */}
-        <header className="h-[73px] border-b border-[#222] bg-[#050505]/90 backdrop-blur-md px-8 flex items-center justify-between shrink-0">
-          <h2 className="text-sm font-mono font-bold text-[#888] uppercase tracking-widest">
-            {navItems.find(i => i.id === currentView)?.label}
-          </h2>
+        <header className="h-[60px] lg:h-[73px] border-b border-[#222] bg-[#050505]/90 backdrop-blur-md px-4 lg:px-8 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-[#888] hover:text-white">
+              <Menu className="w-5 h-5" />
+            </button>
+            <h2 className="text-xs lg:text-sm font-mono font-bold text-[#888] uppercase tracking-widest">
+              {navItems.find(i => i.id === currentView)?.label}
+            </h2>
+          </div>
           
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-2 lg:gap-5">
             <button 
               onClick={triggerStressTest}
-              className="glitch-btn flex items-center gap-2 text-xs font-black uppercase tracking-widest bg-white text-black px-6 py-2.5 hover:bg-[#ccc] transition-colors"
+              className="glitch-btn hidden md:flex items-center gap-2 text-xs font-black uppercase tracking-widest bg-white text-black px-6 py-2.5 hover:bg-[#ccc] transition-colors"
             >
               <Play className="w-3.5 h-3.5 fill-black" />
               SIMULATE RAW AI WORKLOAD
             </button>
-            <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#FBBF24] bg-[#FBBF24]/10 px-4 py-2 border border-[#FBBF24]/30 hud-panel">
-              <span>v8.0_AI_DEV_TOOL</span>
-            </div>
+            <button onClick={exportReport} className="flex items-center gap-2 text-xs font-black uppercase tracking-widest bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/30 px-3 lg:px-4 py-2 hover:bg-[#FBBF24]/20 transition-colors">
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">EXPORT REPORT</span>
+            </button>
           </div>
         </header>
 
-        {/* Non-Scrollable View Container */}
-        <div className="flex-1 overflow-hidden p-4 lg:p-6 flex flex-col">
+        {/* View Container - scrollable on mobile, fixed on desktop */}
+        <div className="flex-1 overflow-y-auto lg:overflow-hidden p-3 lg:p-6 flex flex-col">
           
           <AnimatePresence mode="wait">
             
@@ -338,17 +391,41 @@ export default function App() {
                   exit={{ opacity: 0, scale: 0.98 }}
                   className="max-w-[1600px] mx-auto w-full h-full flex flex-col gap-4"
                 >
-                {/* Top Metrics Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
-                  <div className="lg:col-span-2">
+                {/* Top Row: Metrics + Deploy Score */}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4 shrink-0">
+                  <div className="col-span-2 lg:col-span-2">
                     <ChartCard title="NPU Grid Load" icon={Activity} color={IQOO_GOLD} value={telemetry.npu[telemetry.npu.length - 1]} unit="%" data={telemetry.npu} />
                   </div>
                   <ChartCard title="Token Latency" icon={Zap} color="#34d399" value={telemetry.latency[telemetry.latency.length - 1]} unit="ms" data={telemetry.latency} />
                   <ChartCard title="Chip Temp" icon={Thermometer} color={telemetry.temp[telemetry.temp.length - 1] > 80 ? IQOO_RED : '#f97316'} value={telemetry.temp[telemetry.temp.length - 1]} unit="°C" data={telemetry.temp} />
+                  
+                  {/* Deploy Readiness Score */}
+                  <div className="hud-panel p-4 lg:p-5 flex flex-col items-center justify-center h-[160px] shrink-0 col-span-2 lg:col-span-1">
+                    <h2 className="text-[10px] font-bold text-[#888] uppercase tracking-[0.15em] flex items-center gap-1 mb-2">
+                      <Shield className="w-3.5 h-3.5" style={{color: deployScore >= 80 ? '#34d399' : deployScore >= 50 ? '#FBBF24' : '#DC2626'}} /> Deploy Score
+                    </h2>
+                    <div className="relative w-20 h-20 lg:w-24 lg:h-24">
+                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="#222" strokeWidth="6" />
+                        <circle cx="50" cy="50" r="42" fill="none" 
+                          stroke={deployScore >= 80 ? '#34d399' : deployScore >= 50 ? '#FBBF24' : '#DC2626'}
+                          strokeWidth="6" strokeLinecap="round" strokeDasharray={`${deployScore * 2.64} 264`}
+                          style={{filter: `drop-shadow(0 0 6px ${deployScore >= 80 ? '#34d399' : deployScore >= 50 ? '#FBBF24' : '#DC2626'})`}}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="font-mono text-2xl lg:text-3xl font-black" style={{color: deployScore >= 80 ? '#34d399' : deployScore >= 50 ? '#FBBF24' : '#DC2626'}}>{deployScore}</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest mt-2"
+                      style={{color: deployScore >= 80 ? '#34d399' : deployScore >= 50 ? '#FBBF24' : '#DC2626'}}>
+                      {deployScore >= 80 ? 'DEPLOY READY' : deployScore >= 50 ? 'NEEDS OPT' : 'NOT SAFE'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Bottom Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-4 flex-1 min-h-[250px] lg:min-h-0">
                   
                   {/* Radar Analysis */}
                   <div className="hud-panel p-6 flex flex-col lg:col-span-1">
