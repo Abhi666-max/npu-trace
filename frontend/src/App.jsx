@@ -230,13 +230,22 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentView]);
 
+  // Session uptime timer
   const [lastRefresh, setLastRefresh] = useState(new Date());
   useEffect(() => {
-    // Session uptime timer
     const uptimeInterval = setInterval(() => {
       setSessionUptime(prev => prev + 1);
     }, 1000);
-    return () => clearInterval(uptimeInterval);
+    
+    // Anti-Sleep Keep-Alive Ping (Runs every 4 minutes to keep backend awake on free tiers)
+    const keepAliveInterval = setInterval(() => {
+      fetch('http://localhost:8000/api/ping').catch(() => {});
+    }, 240000);
+
+    return () => {
+      clearInterval(uptimeInterval);
+      clearInterval(keepAliveInterval);
+    };
   }, []);
 
   // Keyboard Shortcuts
@@ -518,9 +527,6 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
       }`}>
         <div className="p-6 border-b border-[#222] flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={generateReport} className="hidden md:flex items-center gap-2 bg-[#FBBF24]/10 hover:bg-[#FBBF24]/20 border border-[#FBBF24]/30 text-[#FBBF24] px-4 py-2 rounded-sm text-xs font-bold tracking-widest uppercase transition-all">
-              <Download className="w-4 h-4" /> Export Audit
-            </button>
             <div className="w-9 h-9 bg-gradient-to-br from-[#FBBF24] to-[#d97706] flex items-center justify-center rounded-sm glitch-btn shadow-[0_0_15px_rgba(251,191,36,0.4)]">
               <Activity className="w-5 h-5 text-black" />
             </div>
@@ -583,10 +589,7 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
             </div>
           </div>
           <div className="pt-4 border-t border-[#222] flex flex-col gap-3 relative z-10">
-            <span className="text-[9px] font-bold text-[#666] uppercase tracking-widest text-center">
-              iQOO Hackathon
-            </span>
-            <span className="text-xs font-black text-white uppercase tracking-widest text-center italic">
+            <span className="text-xs font-black text-white uppercase tracking-widest text-center italic mt-2">
               Abhijeet Kangane
             </span>
             <div className="flex items-center justify-center gap-4 text-[#666] mt-1">
@@ -625,7 +628,7 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
               <Play className="w-3.5 h-3.5 fill-black" />
               SIMULATE RAW AI WORKLOAD
             </button>
-            <button onClick={exportReport} className="flex items-center gap-2 text-xs font-black uppercase tracking-widest bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/30 px-3 lg:px-4 py-2 hover:bg-[#FBBF24]/20 transition-colors">
+            <button onClick={generateReport} className="flex items-center gap-2 text-xs font-black uppercase tracking-widest bg-[#FBBF24]/10 text-[#FBBF24] border border-[#FBBF24]/30 px-3 lg:px-4 py-2 hover:bg-[#FBBF24]/20 transition-colors">
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">EXPORT REPORT</span>
             </button>

@@ -198,4 +198,8 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         db.close()
 
+@app.get("/api/ping")
+def ping():
+    return {"status": "awake", "time": time.time()}
+
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
