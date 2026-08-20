@@ -59,7 +59,8 @@
     </div>
 
     <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws/telemetry`);
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/telemetry`);
         const statusEl = document.getElementById('status');
         const npuEl = document.getElementById('npu');
         const tempEl = document.getElementById('temp');
