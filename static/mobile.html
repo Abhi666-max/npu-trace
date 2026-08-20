@@ -56,6 +56,7 @@
         <div class="data" id="temp">TMP: --°C</div>
         
         <button class="btn" id="stress" onclick="triggerStress()">Spike NPU Load</button>
+        <button class="btn" id="disconnect" style="background: #ef4444; margin-top: 10px;" onclick="disconnectNode()">Disconnect Uplink</button>
     </div>
 
     <script>
@@ -96,12 +97,18 @@
         ws.onclose = () => {
             statusEl.innerText = "CONNECTION LOST";
             statusEl.style.color = "#dc2626";
+            const discBtn = document.getElementById('disconnect');
+            if(discBtn) discBtn.style.display = 'none';
         };
         
         window.triggerStress = () => {
             isStress = true;
             ws.send(JSON.stringify({ command: "TRIGGER_STRESS_TEST" }));
             setTimeout(() => { isStress = false; }, 5000);
+        };
+
+        window.disconnectNode = () => {
+            ws.close();
         };
     </script>
 </body>

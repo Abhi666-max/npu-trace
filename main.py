@@ -195,6 +195,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 db.rollback()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+        await manager.broadcast(json.dumps({"type": "node_status", "data": "offline"}))
     finally:
         db.close()
 

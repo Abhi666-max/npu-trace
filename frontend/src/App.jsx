@@ -166,6 +166,13 @@ export default function App() {
             battery: msg.data.battery_drain_ma,
             batteryData: [...(prev.batteryData || Array(MAX_DATA_POINTS).fill(0)).slice(1), msg.data.battery_drain_ma]
           }));
+        } else if (msg.type === "node_status" && msg.data === "offline") {
+          setStatus('Connection Lost (Node Offline)');
+          const alertId = Math.random().toString(36).substr(2, 9) + Date.now();
+          setAlerts(prev => [...prev, { id: alertId, text: "Uplink to Edge Node lost.", type: 'alert' }]);
+          setTimeout(() => {
+            setAlerts(prev => prev.filter(a => a.id !== alertId));
+          }, 6000);
         } else if (msg.type === "log") {
           const time = new Date().toLocaleTimeString('en-US', { hour12: false });
           const message = msg.data;
