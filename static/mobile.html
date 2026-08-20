@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>iQOO Sensor Node</title>
+    <style>
+        body {
+            background-color: #050505;
+            color: #ededed;
+            font-family: monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            overflow: hidden;
+        }
+        .hud {
+            border: 1px solid #FBBF24;
+            padding: 30px;
+            background: rgba(251, 191, 36, 0.05);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+            width: 100%;
+            max-width: 300px;
+        }
+        h1 { color: #FBBF24; font-size: 24px; text-transform: uppercase; margin-bottom: 5px; }
+        p { color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; }
+        .data { font-size: 32px; font-weight: bold; margin: 20px 0; color: #fff; }
+        .btn {
+            background: #FBBF24;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+        }
+        .status { margin-top: 20px; font-size: 10px; color: #34d399; }
+    </style>
+</head>
+<body>
+    <div class="hud">
+        <h1>NPU Trace</h1>
+        <p>Telemetry Node</p>
+        
+        <div id="status" class="status">Connecting to Uplink...</div>
+        
+        <div class="data" id="npu">NPU: --%</div>
+        <div class="data" id="temp">TMP: --°C</div>
+        
+        <button class="btn" id="stress" onclick="triggerStress()">Spike NPU Load</button>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws/telemetry`);
+        const statusEl = document.getElementById('status');
+        const npuEl = document.getElementById('npu');
+        const tempEl = document.getElementById('temp');
+        
+        let baselineNpu = 20;
+        let baselineTemp = 35;
+        let isStress = false;
+
+        ws.onopen = () => {
+            statusEl.innerText = "UPLINK ESTABLISHED";
+            statusEl.style.color = "#FBBF24";
+            
+            // Start streaming mock telemetry from this phone
+            setInterval(() => {
+                let npu = isStress ? 95 + Math.random() * 5 : baselineNpu + Math.random() * 10;
+                let temp = isStress ? 85 + Math.random() * 5 : baselineTemp + Math.random() * 5;
+                let latency = isStress ? 45 + Math.random() * 10 : 12 + Math.random() * 3;
+                let battery = isStress ? -800 : -200;
+                
+                npuEl.innerText = `NPU: ${npu.toFixed(1)}%`;
+                tempEl.innerText = `TMP: ${temp.toFixed(1)}°C`;
+                
+                ws.send(JSON.stringify({
+                    npu_load_pct: npu,
+                    token_latency_ms: latency,
+                    chip_temp_celsius: temp,
+                    battery_drain_ma: battery
+                }));
+            }, 1000);
+        };
+        
+        ws.onclose = () => {
+            statusEl.innerText = "CONNECTION LOST";
+            statusEl.style.color = "#dc2626";
+        };
+        
+        window.triggerStress = () => {
+            isStress = true;
+            ws.send(JSON.stringify({ command: "TRIGGER_STRESS_TEST" }));
+            setTimeout(() => { isStress = false; }, 5000);
+        };
+    </script>
+</body>
+</html>

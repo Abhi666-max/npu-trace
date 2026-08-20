@@ -17,6 +17,8 @@ import {
   AlertTriangle, Play, LayoutDashboard, History, Settings, ChevronRight, Cpu, Menu, X, Download, Shield, Battery
 } from 'lucide-react';
 import { FaGithub, FaLinkedin, FaTwitter, FaInstagram } from 'react-icons/fa';
+import { useDropzone } from 'react-dropzone';
+import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 ChartJS.register(
@@ -114,6 +116,28 @@ export default function App() {
   const logsEndRef = useRef(null);
   const terminalEndRef = useRef(null);
   const wsRef = useRef(null);
+  const [showQR, setShowQR] = useState(false);
+
+  const onDrop = async (acceptedFiles) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const res = await fetch('http://localhost:8000/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        setAlerts(prev => [...prev, { id: Date.now(), text: `Uploaded ${file.name} to AI Engine`, type: 'success' }]);
+      }
+    } catch(e) {
+      console.error(e);
+    }
+  };
+  
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -141,7 +165,22 @@ export default function App() {
           const message = msg.data;
           // Skip internal system command echo messages from the dashboard log stream
           if (message.startsWith('Executing Command:')) return;
-          setLogs(prev => [...prev.slice(-100), { time, message, id: Math.random().toString(36).substr(2, 9) }]);
+          
+          if (message.startsWith("TRIGGER_CODE_FIX_SUGGESTION:")) {
+            try {
+              const payloadStr = message.split("TRIGGER_CODE_FIX_SUGGESTION:")[1];
+              const payload = JSON.parse(payloadStr);
+              setCodeFix({
+                file: payload.file,
+                original: payload.original,
+                optimized: payload.optimized
+              });
+            } catch(e) {
+              console.error("Failed to parse payload", e);
+            }
+          } else {
+            setLogs(prev => [...prev.slice(-100), { time, message, id: Math.random().toString(36).substr(2, 9) }]);
+          }
         } else if (msg.type === "alert") {
           const alertId = Math.random().toString(36).substr(2, 9) + Date.now();
           setAlerts(prev => [...prev, { id: alertId, text: msg.data, type: 'alert' }]);
@@ -231,7 +270,7 @@ export default function App() {
 
   const applyAiFix = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && codeFix) {
-      wsRef.current.send(JSON.stringify({ command: "APPLY_FIX", file: codeFix.file }));
+      wsRef.current.send(JSON.stringify({ command: "APPLY_FIX", file: codeFix.file, code: codeFix.optimized }));
       setCodeFix(null);
     }
   };
@@ -323,7 +362,45 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-screen flex font-sans antialiased overflow-hidden text-[#ededed] bg-transparent relative">
+    <div {...getRootProps({ className: "h-screen w-screen flex font-sans antialiased overflow-hidden text-[#ededed] bg-transparent relative" })}>
+      <input {...getInputProps()} />
+      {isDragActive && (
+        <div className="absolute inset-0 bg-black/80 z-[200] flex items-center justify-center backdrop-blur-sm border-4 border-dashed border-[#FBBF24]">
+          <h2 className="text-4xl font-black text-[#FBBF24] tracking-widest uppercase">Drop Model / Script to Analyze</h2>
+        </div>
+      )}
+      
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {showQR && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 z-[300] flex flex-col items-center justify-center p-4 backdrop-blur-sm"
+            onClick={() => setShowQR(false)}
+          >
+            <div className="bg-[#111] p-8 border border-[#333] shadow-[0_0_50px_rgba(251,191,36,0.15)] flex flex-col items-center gap-6 max-w-sm w-full relative" onClick={e => e.stopPropagation()}>
+              <button onClick={() => setShowQR(false)} className="absolute top-4 right-4 text-[#888] hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+              <div className="w-16 h-16 bg-[#FBBF24]/10 rounded-full flex items-center justify-center border border-[#FBBF24]/30">
+                <Activity className="w-8 h-8 text-[#FBBF24]" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-2xl font-black text-white uppercase italic tracking-wider mb-2">Scan to Pair</h3>
+                <p className="text-sm text-[#888] font-mono">Open camera on your iQOO device to connect as telemetry sensor.</p>
+              </div>
+              <div className="bg-white p-4 rounded-xl">
+                <QRCodeSVG value={`http://${window.location.hostname}:8000/mobile.html`} size={200} />
+              </div>
+              <p className="text-xs text-[#666] font-mono mt-4 break-all text-center">
+                http://{window.location.hostname}:8000/mobile.html
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Toast Notifications */}
       <div className="fixed top-4 right-4 md:top-20 md:right-8 z-[100] flex flex-col gap-3 max-w-[90vw]">
@@ -392,7 +469,13 @@ export default function App() {
         </div>
 
         <div className="p-6 border-t border-[#222] mt-auto bg-[#0a0a0c] flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+          <button 
+            onClick={() => setShowQR(true)}
+            className="glitch-btn w-full py-3 bg-[#FBBF24]/10 border border-[#FBBF24]/30 text-[#FBBF24] text-xs font-black tracking-widest uppercase hover:bg-[#FBBF24]/20 transition-all"
+          >
+            PAIR MOBILE DEVICE
+          </button>
+          <div className="flex items-center justify-between mt-2">
             <span className="text-xs font-mono font-bold text-[#888] uppercase">Uplink {status}</span>
             <div className={`w-2 h-2 rounded-sm ${status === 'Connected' ? 'bg-[#FBBF24] shadow-[0_0_8px_#FBBF24]' : 'bg-red-500'}`}></div>
           </div>
@@ -666,11 +749,11 @@ export default function App() {
                         <div className="grid grid-cols-2 gap-4 mb-4 font-mono text-[10px]">
                           <div className="border border-[#333] bg-[#000]">
                             <div className="bg-[#220000] text-red-400 px-2 py-1 border-b border-[#333] font-bold">Old Code (Slow)</div>
-                            <pre className="p-2 text-[#888]">def process_tensor():<br/>    print('Processing...')<br/>    # No garbage collection<br/>    return True</pre>
+                            <pre className="p-2 text-[#888]">{codeFix.original}</pre>
                           </div>
                           <div className="border border-[#333] bg-[#000]">
                             <div className="bg-[#002200] text-[#34d399] px-2 py-1 border-b border-[#333] font-bold">AI Suggested Fix (Fast)</div>
-                            <pre className="p-2 text-[#34d399]">import gc<br/>def process_tensor():<br/>    print('Processing...')<br/>    gc.collect() # Fix</pre>
+                            <pre className="p-2 text-[#34d399]">{codeFix.optimized}</pre>
                           </div>
                         </div>
 

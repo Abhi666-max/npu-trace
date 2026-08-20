@@ -1,6 +1,16 @@
 import asyncio
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import os
+import json
+from groq import Groq
+from dotenv import load_dotenv
+
+load_dotenv()
+try:
+    groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+except:
+    groq_client = None
 
 class BuildDirectoryHandler(FileSystemEventHandler):
     def __init__(self, queue: asyncio.Queue, loop: asyncio.AbstractEventLoop):
@@ -23,9 +33,36 @@ class BuildDirectoryHandler(FileSystemEventHandler):
             if filename.endswith(".py"):
                 self._enqueue(f"[AI ENGINE] Python source code detected: {filename}")
                 time.sleep(0.5)
-                self._enqueue(f"[AI ENGINE] Running static analysis and performance profiling...")
+                self._enqueue(f"[AI ENGINE] Running AI static analysis and performance profiling...")
+                
+                # Call Groq LLM
+                original_code = ""
+                optimized_code = ""
+                try:
+                    with open(event.src_path, "r") as f:
+                        original_code = f.read()
+                    
+                    if groq_client:
+                        prompt = f"Optimize the following Python code for edge NPU deployment. Fix memory leaks, add garbage collection, or improve performance. Return ONLY the optimized Python code. No markdown, no explanations.\n\nCode:\n{original_code}"
+                        completion = groq_client.chat.completions.create(
+                            model="llama3-8b-8192",
+                            messages=[{"role": "user", "content": prompt}],
+                            temperature=0.1,
+                            max_tokens=1000
+                        )
+                        optimized_code = completion.choices[0].message.content.strip()
+                        if optimized_code.startswith("```python"):
+                            optimized_code = optimized_code.split("```python")[1].split("```")[0].strip()
+                    else:
+                        optimized_code = "import gc\n# AI OPTIMIZED CODE (Mocked)\n\n" + original_code + "\n    gc.collect()\n"
+                except Exception as e:
+                    print("LLM Error:", e)
+                    optimized_code = original_code
+                
                 time.sleep(1.0)
-                self._enqueue(f"TRIGGER_CODE_FIX_SUGGESTION:{filename}")
+                # We serialize the data as JSON inside the trigger string so frontend can parse it
+                payload = json.dumps({"file": filename, "original": original_code, "optimized": optimized_code})
+                self._enqueue(f"TRIGGER_CODE_FIX_SUGGESTION:{payload}")
             else:
                 self._enqueue(f"[AI ENGINE] Raw model detected: {filename}")
                 time.sleep(0.5)

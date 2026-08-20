@@ -2,7 +2,8 @@ import os
 import json
 import asyncio
 import time
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import shutil
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
@@ -102,6 +103,17 @@ def get_logs_history(limit: int = 100):
     db.close()
     return records
 
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    try:
+        os.makedirs("target_builds", exist_ok=True)
+        file_path = os.path.join("target_builds", file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        return {"filename": file.filename, "status": "Upload successful. Watchdog triggered."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.websocket("/ws/telemetry")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -131,9 +143,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         await manager.broadcast(json.dumps({"type": "command", "data": cmd}))
                     elif cmd == "APPLY_FIX":
                         file_name = payload_dict.get("file", "unknown.py")
+                        optimized_code = payload_dict.get("code", "")
                         file_path = os.path.join("target_builds", file_name)
                         try:
-                            optimized_code = "import gc\n# AI OPTIMIZED CODE\n# Memory leak resolved via inline garbage collection.\n\ndef process_tensor():\n    print('Processing optimized tensor graph...')\n    gc.collect()\n"
                             with open(file_path, "w") as f:
                                 f.write(optimized_code)
                             await manager.broadcast(json.dumps({"type": "log", "data": f"[AI CODE HEALER] Successfully applied fix to {file_name}. File rewritten."}))
@@ -185,3 +197,5 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
     finally:
         db.close()
+
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
