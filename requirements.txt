@@ -4,3 +4,4 @@ watchdog==6.0.0
 groq==0.13.1
 python-multipart==0.0.20
 sqlalchemy==2.0.36
+python-dotenv==1.0.1
