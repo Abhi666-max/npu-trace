@@ -157,6 +157,8 @@ export default function App() {
         if (demoMode) return;
         const msg = JSON.parse(event.data);
         if (msg.type === "telemetry") {
+          setShowQR(false); // Auto close QR modal
+          setStatus('Connected (Edge Node Active)');
           setTelemetry(prev => ({
             npu: [...prev.npu.slice(1), msg.data.npu_load_pct],
             latency: [...prev.latency.slice(1), msg.data.token_latency_ms],

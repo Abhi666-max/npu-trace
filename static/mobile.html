@@ -84,6 +84,7 @@
                 tempEl.innerText = `TMP: ${temp.toFixed(1)}°C`;
                 
                 ws.send(JSON.stringify({
+                    timestamp: Date.now(),
                     npu_load_pct: npu,
                     token_latency_ms: latency,
                     chip_temp_celsius: temp,
