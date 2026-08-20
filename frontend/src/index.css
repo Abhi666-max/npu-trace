@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --iqoo-gold: #FBBF24;
+    --iqoo-gold-glow: rgba(251, 191, 36, 0.5);
+    --iqoo-dark: #050505;
+    --iqoo-panel: #0a0a0c;
+    --iqoo-border: #222222;
+    --iqoo-red: #DC2626;
+  }
+
+  body {
+    background-color: var(--iqoo-dark);
+    color: #e5e5e5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Tactical grid background */
+    background-image: 
+      linear-gradient(rgba(251, 191, 36, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(251, 191, 36, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center center;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--iqoo-gold);
+  border-radius: 0px;
+}
+
+/* Angular HUD Gaming Panels */
+.hud-panel {
+  background: var(--iqoo-panel);
+  border: 1px solid var(--iqoo-border);
+  position: relative;
+  /* Cut off the bottom right and top left corners */
+  clip-path: polygon(
+    0 10px, 
+    10px 0, 
+    100% 0, 
+    100% calc(100% - 10px), 
+    calc(100% - 10px) 100%, 
+    0 100%
+  );
+  transition: all 0.3s ease;
+}
+
+.hud-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border: 1px solid var(--iqoo-gold);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.hud-panel:hover::before {
+  opacity: 0.15;
+}
+
+/* Glitch Button Effect */
+.glitch-btn {
+  position: relative;
+  overflow: hidden;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.glitch-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transform: skewX(-20deg);
+  transition: 0s;
+}
+.glitch-btn:hover::before {
+  left: 200%;
+  transition: 0.5s ease-in-out;
+}
+
+/* Scanline Overlay for Terminal */
+.scanlines {
+  position: relative;
+}
+.scanlines::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  z-index: 2;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+}
+
+/* Typography Overrides */
+.metric-value {
+  letter-spacing: -0.05em;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+}

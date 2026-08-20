@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+
+# Database files (don't commit actual data)
+*.db
+*.sqlite
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Target builds (user's own model files)
+target_builds/*
+!target_builds/.gitkeep
+
+# Misc
+.DS_Store
