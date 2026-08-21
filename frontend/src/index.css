@@ -26,15 +26,37 @@
   }
 }
 
-.custom-scrollbar::-webkit-scrollbar {
+/* Global Scrollbar */
+::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+::-webkit-scrollbar-track {
+  background: var(--iqoo-panel);
+}
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--iqoo-gold);
+}
+
+/* Custom Scrollbar for specific dense areas */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 2px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--iqoo-gold);
-  border-radius: 0px;
+}
+
+/* Hide Scrollbar */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
 }
 
 /* Angular HUD Gaming Panels */

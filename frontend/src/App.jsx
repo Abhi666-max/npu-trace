@@ -836,34 +836,58 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
                     </div>
                   </div>
 
-                  {/* Execution Stream (Mini) */}
+                  {/* Neural Core Topology */}
                   <div className="hud-panel p-0 lg:col-span-2 flex flex-col scanlines">
                     <div className="px-5 py-4 border-b border-[#222] bg-[#0a0a0c] z-10 flex items-center justify-between">
                       <h2 className="text-[11px] font-bold text-[#888] uppercase tracking-[0.2em] flex items-center gap-2">
-                        <List className="w-4 h-4 text-[#FBBF24]" /> Watchdog Auto-Optimizer
+                        <Cpu className="w-4 h-4 text-[#FBBF24]" /> Neural Core Topology
                       </h2>
                       <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 border"
                         style={activeProfile === 'ECO' ? {borderColor:'#34d399',color:'#34d399'} : activeProfile === 'PERFORMANCE' ? {borderColor:'#DC2626',color:'#DC2626'} : {borderColor:'#FBBF24',color:'#FBBF24'}}>
                         {activeProfile} PROFILE
                       </span>
                     </div>
-                    <div className="p-5 flex-1 relative bg-[#050505] z-10">
-                      <div className="absolute inset-5 overflow-y-auto font-mono text-xs leading-relaxed space-y-2 pr-3 custom-scrollbar flex flex-col">
-                        {logs.length === 0 ? (
-                          <div className="flex flex-col gap-3 mt-auto">
-                            <div className="text-[#444] font-bold animate-pulse">Monitoring /target_builds for AI model drops...</div>
-                            <div className="text-[#333] text-[10px]">Drop a <span className="text-[#FBBF24]/60">.pt / .onnx</span> file → Auto-Quantize to INT8</div>
-                            <div className="text-[#333] text-[10px]">Drop a <span className="text-red-900">.py</span> file → AI Code Healer scan</div>
-                          </div>
-                        ) : (
-                          logs.slice(-20).map((log) => (
-                            <div key={log.id} className="flex items-start gap-3 py-1 border-b border-[#111] last:border-0 hover:bg-[#111] px-2">
-                              <span className="text-[#666] shrink-0 font-bold">[{log.time}]</span> 
-                              <span className={`break-words ${log.message.includes('AI ENGINE') ? 'text-[#FBBF24] font-black' : log.message.includes('AI CODE HEALER') ? 'text-[#34d399]' : 'text-[#ccc]'}`}>{log.message}</span>
+                    <div className="p-5 flex-1 bg-[#050505] z-10 flex flex-col md:flex-row gap-6 items-center">
+                      {/* Core Grid */}
+                      <div className="grid grid-cols-12 gap-1 w-full md:w-[55%] shrink-0">
+                        {Array.from({ length: 96 }).map((_, i) => {
+                          const npuLoad = telemetry.npu[telemetry.npu.length - 1] || 0;
+                          const isActive = Math.random() * 100 < npuLoad;
+                          return (
+                            <div key={i} className="aspect-square w-full rounded-[1px] transition-colors duration-100 relative overflow-hidden"
+                                 style={{
+                                   backgroundColor: isActive ? (npuLoad > 85 ? '#DC2626' : '#FBBF24') : '#111',
+                                   boxShadow: isActive ? `0 0 8px ${npuLoad > 85 ? 'rgba(220,38,38,0.6)' : 'rgba(251,191,36,0.4)'}` : 'none'
+                                 }}>
+                              {isActive && <div className="absolute inset-0 bg-white/20 animate-pulse"></div>}
                             </div>
-                          ))
-                        )}
-                        <div ref={logsEndRef} />
+                          )
+                        })}
+                      </div>
+                      
+                      {/* Stats */}
+                      <div className="flex flex-col gap-4 w-full md:border-l border-[#222] md:pl-6 md:py-2">
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-[#666] tracking-[0.2em] uppercase font-bold">Active Threads</span>
+                          <div className="flex items-end gap-1">
+                            <span className="text-3xl font-black text-white">{Math.round((telemetry.npu[telemetry.npu.length - 1] || 0) / 100 * 96)}</span>
+                            <span className="text-xs text-[#666] mb-1">/ 96</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[9px] text-[#666] tracking-[0.2em] uppercase font-bold">Compute Power</span>
+                          <span className="text-xl font-bold text-[#34d399] drop-shadow-[0_0_5px_rgba(52,211,153,0.3)]">{( (telemetry.npu[telemetry.npu.length - 1] || 0) * 0.45 ).toFixed(1)} TOPS</span>
+                        </div>
+                        <div className="flex flex-col mt-2">
+                          <span className="text-[9px] text-[#666] tracking-[0.2em] uppercase font-bold">Thermal State</span>
+                          <span className="text-[10px] font-black uppercase mt-1 px-3 py-1 bg-[#111] inline-block w-max border border-[#222]"
+                                style={{
+                                  color: (telemetry.temp[telemetry.temp.length - 1] || 0) > 80 ? '#DC2626' : '#FBBF24',
+                                  borderColor: (telemetry.temp[telemetry.temp.length - 1] || 0) > 80 ? '#DC2626' : '#222'
+                                }}>
+                            {(telemetry.temp[telemetry.temp.length - 1] || 0) > 80 ? 'THROTTLING IMMINENT' : 'OPTIMAL'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
