@@ -100,7 +100,6 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [status, setStatus] = useState('Waiting for Edge Node...');
-  const [deployScore, setDeployScore] = useState(86);
   const [sessionUptime, setSessionUptime] = useState(0);
   
   const [telemetry, setTelemetry] = useState({
@@ -288,7 +287,6 @@ export default function App() {
           battery: 0,
           batteryData: Array(MAX_DATA_POINTS).fill(0)
         });
-        setDeployScore(86);
         setLogs([]);
         return;
       }
