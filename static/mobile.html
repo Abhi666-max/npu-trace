@@ -60,8 +60,6 @@
     </div>
 
     <script>
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/telemetry`);
         const statusEl = document.getElementById('status');
         const npuEl = document.getElementById('npu');
         const tempEl = document.getElementById('temp');
@@ -69,47 +67,90 @@
         let baselineNpu = 20;
         let baselineTemp = 35;
         let isStress = false;
+        let ws;
+        let intentionallyDisconnected = false;
+        let streamInterval;
 
-        ws.onopen = () => {
-            statusEl.innerText = "UPLINK ESTABLISHED";
-            statusEl.style.color = "#FBBF24";
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {}
+        }
+
+        function connect() {
+            if (intentionallyDisconnected) return;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/telemetry`);
             
-            // Start streaming mock telemetry from this phone
-            setInterval(() => {
-                let npu = isStress ? 95 + Math.random() * 5 : baselineNpu + Math.random() * 10;
-                let temp = isStress ? 85 + Math.random() * 5 : baselineTemp + Math.random() * 5;
-                let latency = isStress ? 45 + Math.random() * 10 : 12 + Math.random() * 3;
-                let battery = isStress ? -800 : -200;
+            ws.onopen = () => {
+                statusEl.innerText = "UPLINK ESTABLISHED";
+                statusEl.style.color = "#FBBF24";
+                const discBtn = document.getElementById('disconnect');
+                if(discBtn) discBtn.style.display = 'block';
+                requestWakeLock();
                 
-                npuEl.innerText = `NPU: ${npu.toFixed(1)}%`;
-                tempEl.innerText = `TMP: ${temp.toFixed(1)}°C`;
-                
-                ws.send(JSON.stringify({
-                    timestamp: Date.now(),
-                    npu_load_pct: npu,
-                    token_latency_ms: latency,
-                    chip_temp_celsius: temp,
-                    battery_drain_ma: battery
-                }));
-            }, 1000);
-        };
-        
-        ws.onclose = () => {
-            statusEl.innerText = "CONNECTION LOST";
-            statusEl.style.color = "#dc2626";
-            const discBtn = document.getElementById('disconnect');
-            if(discBtn) discBtn.style.display = 'none';
-        };
+                if (streamInterval) clearInterval(streamInterval);
+                streamInterval = setInterval(() => {
+                    let npu = isStress ? 95 + Math.random() * 5 : baselineNpu + Math.random() * 10;
+                    let temp = isStress ? 85 + Math.random() * 5 : baselineTemp + Math.random() * 5;
+                    let latency = isStress ? 45 + Math.random() * 10 : 12 + Math.random() * 3;
+                    let battery = isStress ? -800 : -200;
+                    
+                    npuEl.innerText = `NPU: ${npu.toFixed(1)}%`;
+                    tempEl.innerText = `TMP: ${temp.toFixed(1)}°C`;
+                    
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            timestamp: Date.now(),
+                            npu_load_pct: npu,
+                            token_latency_ms: latency,
+                            chip_temp_celsius: temp,
+                            battery_drain_ma: battery
+                        }));
+                    }
+                }, 1000);
+            };
+            
+            ws.onclose = () => {
+                if (streamInterval) clearInterval(streamInterval);
+                if (intentionallyDisconnected) {
+                    statusEl.innerText = "DISCONNECTED BY USER";
+                    statusEl.style.color = "#888";
+                } else {
+                    statusEl.innerText = "SIGNAL LOST... RECONNECTING";
+                    statusEl.style.color = "#dc2626";
+                    setTimeout(connect, 2000);
+                }
+                const discBtn = document.getElementById('disconnect');
+                if(discBtn) discBtn.style.display = 'none';
+            };
+        }
+
+        connect();
         
         window.triggerStress = () => {
             isStress = true;
-            ws.send(JSON.stringify({ command: "TRIGGER_STRESS_TEST" }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ command: "TRIGGER_STRESS_TEST" }));
+            }
             setTimeout(() => { isStress = false; }, 5000);
         };
 
         window.disconnectNode = () => {
-            ws.close();
+            intentionallyDisconnected = true;
+            if (ws) ws.close();
         };
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && !intentionallyDisconnected) {
+                requestWakeLock();
+                if (!ws || ws.readyState === WebSocket.CLOSED) {
+                    connect();
+                }
+            }
+        });
     </script>
 </body>
 </html>
