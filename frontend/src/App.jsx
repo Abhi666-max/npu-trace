@@ -123,11 +123,8 @@ export default function App() {
   const [showQR, setShowQR] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   
-  // Quantizer States
-  const [quantizeState, setQuantizeState] = useState('IDLE');
-  const [quantizeProgress, setQuantizeProgress] = useState(0);
-  const [quantizeLog, setQuantizeLog] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('Llama-3 (8B)');
+  // Profiler States
+  // (We don't need complex states for the profiler, it maps directly to `telemetry` and `logs`!)
   const demoIntervalRef = useRef(null);
   
   const demoModeRef = useRef(demoMode);
@@ -514,48 +511,10 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
     URL.revokeObjectURL(url);
   };
 
-  const startQuantization = () => {
-    setQuantizeState('QUANTIZING');
-    setQuantizeProgress(0);
-    setQuantizeLog([`[0.0s] Initializing ${selectedModel} FP32 Checkpoint...`, '[0.5s] Analyzing memory footprint...']);
-    
-    let p = 0;
-    const interval = setInterval(() => {
-      p += 2;
-      setQuantizeProgress(p);
-      if (p === 20) setQuantizeLog(l => [...l, '[2.1s] Pruning zero-activation weights...']);
-      if (p === 40) setQuantizeLog(l => [...l, '[4.5s] Computing INT8 quantization scales for Snapdragon NPU...']);
-      if (p === 60) setQuantizeLog(l => [...l, '[7.2s] Folding BatchNorm and Activation layers...']);
-      if (p === 80) setQuantizeLog(l => [...l, '[9.8s] Serializing optimized execution graph to .tflite...']);
-      
-      if (p >= 100) {
-        clearInterval(interval);
-        setQuantizeState('DONE');
-        setQuantizeLog(l => [...l, '[12.4s] Quantization Complete! Ready for Edge Node Deployment.']);
-      }
-    }, 100);
-  };
-
-  const deployToEdge = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ command: 'DEPLOY_MODEL' }));
-      const newAlert = { id: Date.now(), text: 'NPU Model Deployed Successfully!', type: 'success' };
-      setAlerts(prev => [...prev, newAlert]);
-      setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== newAlert.id)), 4000);
-      setQuantizeState('IDLE');
-      setQuantizeLog([]);
-      setQuantizeProgress(0);
-    } else {
-      const newAlert = { id: Date.now(), text: 'Edge Node disconnected! Cannot deploy.', type: 'error' };
-      setAlerts(prev => [...prev, newAlert]);
-      setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== newAlert.id)), 4000);
-    }
-  };
-
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Live HUD' },
     { id: 'history', icon: History, label: 'Trace History' },
-    { id: 'quantizer', icon: Box, label: 'Model Quantizer' },
+    { id: 'profiler', icon: Cpu, label: 'SoC Profiler' },
     { id: 'settings', icon: Settings, label: 'Hardware Config' },
   ];
 
@@ -991,116 +950,150 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
               </motion.div>
             )}
 
-            {/* 3. QUANTIZER VIEW */}
-            {currentView === 'quantizer' && (
+            {/* 3. SOC PROFILER VIEW */}
+            {currentView === 'profiler' && (
               <motion.div 
-                key="quantizer"
+                key="profiler"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="max-w-[1200px] mx-auto w-full h-full flex flex-col gap-6"
+                className="max-w-[1400px] mx-auto w-full h-full flex flex-col gap-6"
               >
                 <div className="flex flex-col gap-2">
                   <h1 className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-3">
-                    <Box className="w-8 h-8 text-[#FBBF24]" /> AI Model Quantization Lab
+                    <Cpu className="w-8 h-8 text-[#FBBF24]" /> SoC Thermal & Power Topography
                   </h1>
-                  <p className="text-[#888] font-mono text-xs">Compress heavily-parameterized FP32 models to INT8 for extreme efficiency on the iQOO NPU Edge Node.</p>
+                  <p className="text-[#888] font-mono text-xs">Real-time hardware footprint of the iQOO Edge Node. Monitor live tensor allocations, thermal throttling thresholds, and power draw.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Panel: Configuration */}
-                  <div className="hud-panel p-6 flex flex-col gap-6">
-                    <div>
-                      <h3 className="text-[11px] font-bold text-[#666] tracking-[0.2em] uppercase mb-3">Target Model Payload</h3>
-                      <div className="flex flex-col gap-2">
-                        {['Llama-3 (8B)', 'Vision Transformer (ViT-H)', 'Whisper-v3'].map(m => (
-                          <button 
-                            key={m}
-                            onClick={() => quantizeState === 'IDLE' && setSelectedModel(m)}
-                            className={`px-4 py-3 border text-left font-bold font-mono text-sm uppercase tracking-wide transition-colors ${
-                              selectedModel === m 
-                                ? 'bg-[#FBBF24]/10 border-[#FBBF24] text-[#FBBF24] shadow-[inset_0_0_15px_rgba(251,191,36,0.1)]' 
-                                : 'border-[#222] text-[#666] hover:bg-[#111] hover:text-white'
-                            } ${quantizeState !== 'IDLE' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          >
-                            {m}
-                          </button>
-                        ))}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+                  
+                  {/* SoC Heatmap Visualization */}
+                  <div className="lg:col-span-2 hud-panel p-6 flex flex-col relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-[#050505] opacity-50 scanlines pointer-events-none"></div>
+                    <div className="flex justify-between items-center mb-6 z-10">
+                      <h3 className="text-[11px] font-bold text-[#666] tracking-[0.2em] uppercase">Snapdragon Die Layout</h3>
+                      <div className="flex gap-4 font-mono text-[10px]">
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 bg-[#34d399]"></div> 30°C</span>
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 bg-[#FBBF24]"></div> 60°C</span>
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 bg-red-500"></div> 90°C</span>
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 mt-auto">
-                      <div className="bg-[#111] border border-[#222] p-4 flex flex-col items-center justify-center text-center">
-                        <span className="text-[9px] text-[#666] tracking-[0.2em] uppercase mb-1">Original FP32 Size</span>
-                        <span className="text-xl font-black text-red-500">16.2 GB</span>
-                      </div>
-                      <div className="bg-[#111] border border-[#222] p-4 flex flex-col items-center justify-center text-center">
-                        <span className="text-[9px] text-[#666] tracking-[0.2em] uppercase mb-1">Target INT8 Size</span>
-                        <span className="text-xl font-black text-[#34d399]">4.1 GB</span>
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={startQuantization}
-                      disabled={quantizeState !== 'IDLE'}
-                      className={`relative w-full py-4 text-xs font-black tracking-widest uppercase transition-all duration-300 ${
-                        quantizeState === 'IDLE'
-                          ? 'bg-black border border-[#FBBF24] text-[#FBBF24] hover:bg-[#FBBF24] hover:text-black shadow-[0_0_15px_rgba(251,191,36,0.2)]'
-                          : 'bg-[#222] text-[#555] border border-[#333] cursor-not-allowed'
-                      }`}
-                    >
-                      {quantizeState === 'IDLE' ? 'Initiate INT8 Quantization' : 'Quantization Engine Locked'}
-                    </button>
-                  </div>
-
-                  {/* Right Panel: Compilation Output */}
-                  <div className="hud-panel p-0 flex flex-col scanlines relative bg-[#050505]">
-                    <div className="px-5 py-4 border-b border-[#222] bg-[#0a0a0c] z-10 flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold text-[#888] uppercase">root@nputrace-compiler:~#</span>
-                      {quantizeState === 'QUANTIZING' && <Activity className="w-4 h-4 text-[#FBBF24] animate-spin" />}
-                    </div>
-                    
-                    <div className="p-6 flex-1 flex flex-col gap-6 z-10">
-                      {/* Progress Bar */}
-                      {quantizeState !== 'IDLE' && (
-                        <div className="flex flex-col gap-2">
-                          <div className="flex justify-between text-[10px] font-bold font-mono tracking-widest text-[#FBBF24]">
-                            <span>COMPILING GRAPH</span>
-                            <span>{quantizeProgress}%</span>
+                    <div className="flex-1 flex items-center justify-center p-8 z-10 relative">
+                      {/* The Motherboard SVG */}
+                      <div className="w-full max-w-[600px] aspect-[4/3] border-2 border-[#333] relative p-4 bg-[#0a0a0c] shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]">
+                        {/* Fake Pins */}
+                        <div className="absolute top-0 left-4 right-4 flex justify-between h-2">{Array(20).fill(0).map((_,i)=><div key={i} className="w-1 bg-[#444]"></div>)}</div>
+                        <div className="absolute bottom-0 left-4 right-4 flex justify-between h-2">{Array(20).fill(0).map((_,i)=><div key={i} className="w-1 bg-[#444]"></div>)}</div>
+                        
+                        <div className="w-full h-full border border-[#222] grid grid-cols-3 grid-rows-3 gap-2 p-2 relative">
+                          
+                          {/* Cortex-X4 */}
+                          <div className="col-span-2 row-span-1 border border-[#333] bg-[#111] relative flex flex-col items-center justify-center overflow-hidden transition-all duration-300"
+                               style={{ borderColor: telemetry.temp[telemetry.temp.length-1] > 70 ? 'rgba(251,191,36,0.5)' : '#333' }}>
+                             <span className="text-[10px] text-[#666] font-black tracking-widest z-10">CORTEX-X4 CLUSTER</span>
+                             <span className="text-xl font-mono text-white mt-1 z-10">{((telemetry.npu[telemetry.npu.length-1] || 0) * 0.4).toFixed(1)}%</span>
+                             <div className="absolute bottom-0 left-0 h-1 bg-[#FBBF24] transition-all" style={{width: `${(telemetry.npu[telemetry.npu.length-1] || 0) * 0.4}%`}}></div>
                           </div>
-                          <div className="h-2 w-full bg-[#111] border border-[#333] overflow-hidden">
-                            <div className="h-full bg-[#FBBF24] transition-all duration-75" style={{ width: `${quantizeProgress}%` }}></div>
+
+                          {/* L3 Cache */}
+                          <div className="col-span-1 row-span-3 border border-[#333] bg-[#0a0a0c] flex items-center justify-center">
+                             <div className="rotate-90 text-[10px] text-[#444] font-black tracking-widest whitespace-nowrap">L3 SHARED CACHE</div>
+                          </div>
+
+                          {/* Hexagon NPU - THE MAIN HIGHLIGHT */}
+                          <div className="col-span-2 row-span-2 border-2 relative flex flex-col items-center justify-center shadow-[inset_0_0_50px_rgba(0,0,0,0.5)] transition-all duration-500"
+                               style={{
+                                 borderColor: (telemetry.temp[telemetry.temp.length-1] || 0) > 80 ? '#ef4444' : (telemetry.temp[telemetry.temp.length-1] || 0) > 60 ? '#f59e0b' : '#10b981',
+                                 backgroundColor: (telemetry.temp[telemetry.temp.length-1] || 0) > 80 ? 'rgba(239,68,68,0.1)' : (telemetry.temp[telemetry.temp.length-1] || 0) > 60 ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.05)',
+                                 boxShadow: (telemetry.temp[telemetry.temp.length-1] || 0) > 80 ? '0 0 40px rgba(239,68,68,0.3), inset 0 0 20px rgba(239,68,68,0.2)' : 'none'
+                               }}>
+                             <Activity className={`absolute top-2 right-2 w-4 h-4 ${(telemetry.temp[telemetry.temp.length-1] || 0) > 80 ? 'text-red-500 animate-pulse' : 'text-[#34d399]'}`} />
+                             <span className="text-xs text-white font-black tracking-widest z-10 uppercase">Hexagon™ NPU</span>
+                             <div className="flex gap-4 mt-2 z-10">
+                               <div className="flex flex-col items-center">
+                                 <span className="text-[9px] text-[#888] font-mono mb-1">LOAD</span>
+                                 <span className="text-2xl font-black font-mono" style={{color: (telemetry.temp[telemetry.temp.length-1] || 0) > 80 ? '#ef4444' : '#10b981'}}>{(telemetry.npu[telemetry.npu.length-1] || 0).toFixed(1)}%</span>
+                               </div>
+                               <div className="w-[1px] h-full bg-[#333]"></div>
+                               <div className="flex flex-col items-center">
+                                 <span className="text-[9px] text-[#888] font-mono mb-1">TEMP</span>
+                                 <span className="text-2xl font-black font-mono" style={{color: (telemetry.temp[telemetry.temp.length-1] || 0) > 80 ? '#ef4444' : (telemetry.temp[telemetry.temp.length-1] || 0) > 60 ? '#f59e0b' : '#10b981'}}>{(telemetry.temp[telemetry.temp.length-1] || 0).toFixed(1)}°C</span>
+                               </div>
+                             </div>
+                             
+                             {/* Throttling overlay */}
+                             {(telemetry.temp[telemetry.temp.length-1] || 0) > 80 && (
+                               <div className="absolute inset-0 bg-red-500/10 flex items-center justify-center animate-pulse z-0">
+                                  <span className="text-[200px] text-red-500/10 font-black absolute">!</span>
+                               </div>
+                             )}
                           </div>
                         </div>
-                      )}
+                      </div>
+                    </div>
+                  </div>
 
-                      {/* Logs */}
-                      <div className="flex-1 font-mono text-xs text-[#888] flex flex-col gap-2 overflow-y-auto custom-scrollbar">
-                        {quantizeState === 'IDLE' ? (
-                          <div className="flex h-full items-center justify-center text-[#444] animate-pulse">
-                            Awaiting compilation trigger...
+                  {/* Right Panel: Live Stats & Logs */}
+                  <div className="flex flex-col gap-6">
+                    {/* Live Derived Metrics */}
+                    <div className="hud-panel p-6 flex flex-col gap-4">
+                      <h3 className="text-[11px] font-bold text-[#666] tracking-[0.2em] uppercase">Derived Physical Metrics</h3>
+                      
+                      <div className="flex flex-col gap-3">
+                        <div className="bg-[#111] p-3 flex justify-between items-center border border-[#222]">
+                          <div className="flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-[#FBBF24]" />
+                            <span className="text-xs text-[#888] font-mono uppercase tracking-widest">Est. Power Draw</span>
                           </div>
-                        ) : (
-                          quantizeLog.map((log, i) => (
-                            <div key={i} className={`flex gap-3 px-2 ${i === quantizeLog.length - 1 && quantizeState === 'DONE' ? 'text-[#34d399] font-bold bg-[#34d399]/10 py-2' : ''}`}>
-                              <span className="text-[#FBBF24] shrink-0">{'>'}</span>
-                              <span>{log}</span>
+                          <span className="text-lg font-black font-mono text-[#FBBF24]">
+                            {Math.abs(((telemetry.battery || 0) * 3.8) / 1000).toFixed(2)} W
+                          </span>
+                        </div>
+                        
+                        <div className="bg-[#111] p-3 flex justify-between items-center border border-[#222]">
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-[#34d399]" />
+                            <span className="text-xs text-[#888] font-mono uppercase tracking-widest">Memory Bandwidth</span>
+                          </div>
+                          <span className="text-lg font-black font-mono text-[#34d399]">
+                            {(((telemetry.npu[telemetry.npu.length-1] || 0) / 100) * 51.2).toFixed(1)} GB/s
+                          </span>
+                        </div>
+                        
+                        <div className="bg-[#111] p-3 flex justify-between items-center border border-[#222]">
+                          <div className="flex items-center gap-2">
+                            <Thermometer className="w-4 h-4 text-red-500" />
+                            <span className="text-xs text-[#888] font-mono uppercase tracking-widest">TjMAX Headroom</span>
+                          </div>
+                          <span className="text-lg font-black font-mono text-white">
+                            {Math.max(0, 95 - (telemetry.temp[telemetry.temp.length-1] || 0)).toFixed(1)}°C
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Thermal Event Log */}
+                    <div className="hud-panel p-0 flex-1 flex flex-col min-h-0 bg-[#050505] scanlines">
+                      <div className="px-5 py-3 border-b border-[#222] bg-[#0a0a0c] z-10 flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold text-[#888] uppercase">Thermal Subsystem Logs</span>
+                      </div>
+                      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-2 font-mono text-[10px] z-10">
+                        {logs.filter(l => l.message.includes('Thermal') || l.message.includes('temp') || l.message.includes('NPU') || l.message.includes('Throttling') || l.message.includes('limit')).length > 0 ? (
+                          logs.filter(l => l.message.includes('Thermal') || l.message.includes('temp') || l.message.includes('NPU') || l.message.includes('Throttling') || l.message.includes('limit')).slice(-15).map((log, i) => (
+                            <div key={i} className="flex gap-2 p-1 hover:bg-[#111]">
+                              <span className="text-[#666] shrink-0">[{log.time}]</span>
+                              <span className={log.message.includes('warning') || log.message.includes('EXCEEDED') || log.message.includes('CRITICAL') ? 'text-red-500 font-bold' : 'text-[#888]'}>{log.message}</span>
                             </div>
                           ))
+                        ) : (
+                          <div className="text-[#444] text-center mt-4 flex items-center justify-center gap-2">
+                            <Activity className="w-3 h-3 animate-spin" /> Waiting for thermal events...
+                          </div>
                         )}
+                        <div ref={terminalEndRef}></div>
                       </div>
-                      
-                      {/* Action Button */}
-                      {quantizeState === 'DONE' && (
-                        <motion.button 
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          onClick={deployToEdge}
-                          className="mt-auto w-full py-4 bg-[#34d399]/10 border border-[#34d399] text-[#34d399] text-xs font-black tracking-widest uppercase hover:bg-[#34d399]/20 transition-colors shadow-[0_0_20px_rgba(52,211,153,0.2)] flex items-center justify-center gap-3 glitch-btn"
-                        >
-                          <CheckCircle className="w-5 h-5" /> Deploy Model to Edge Node
-                        </motion.button>
-                      )}
                     </div>
                   </div>
                 </div>
