@@ -524,7 +524,7 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
 
   if (showWelcome) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-[#050505] font-sans overflow-hidden scanlines">
+      <div className="h-[100dvh] w-screen flex items-center justify-center bg-[#050505] font-sans overflow-hidden scanlines">
         <div className="flex flex-col items-center gap-6 z-10 p-8">
           <div className="w-20 h-20 bg-gradient-to-br from-[#FBBF24] to-[#d97706] flex items-center justify-center rounded-sm glitch-btn shadow-[0_0_30px_rgba(251,191,36,0.4)] mb-4">
             <Activity className="w-10 h-10 text-black" />
@@ -550,7 +550,7 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
   }
 
   return (
-    <div {...getRootProps({ className: "h-screen w-screen flex font-sans antialiased overflow-hidden text-[#ededed] bg-transparent relative" })}>
+    <div {...getRootProps({ className: "h-[100dvh] w-screen flex font-sans antialiased overflow-hidden text-[#ededed] bg-transparent relative" })}>
       <input {...getInputProps()} />
       {isDragActive && (
         <div className="absolute inset-0 bg-black/80 z-[200] flex items-center justify-center backdrop-blur-sm border-4 border-dashed border-[#FBBF24]">

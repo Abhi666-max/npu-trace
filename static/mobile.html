@@ -2,67 +2,196 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>iQOO Sensor Node</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>iQOO Tactical Edge Node</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@400;700;900&display=swap');
         body {
             background-color: #050505;
             color: #ededed;
-            font-family: monospace;
+            font-family: 'JetBrains Mono', monospace;
             margin: 0;
-            padding: 20px;
+            overflow: hidden;
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .glass-panel {
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(251, 191, 36, 0.05);
+        }
+
+        .cyber-text {
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Pulse Ring Animation */
+        .ring-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            text-align: center;
+        }
+        .pulse-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid #FBBF24;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.4), inset 0 0 20px rgba(251, 191, 36, 0.4);
+            animation: pulse 2s infinite ease-out;
+        }
+        .pulse-ring.active {
+            border-color: #ef4444;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.6), inset 0 0 30px rgba(239, 68, 68, 0.6);
+            animation: pulse-fast 0.5s infinite ease-out;
+        }
+        .pulse-ring.idle {
+            border-color: #3f3f46;
+            box-shadow: none;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 0.3; }
+            100% { transform: scale(0.9); opacity: 0.8; }
+        }
+        @keyframes pulse-fast {
+            0% { transform: scale(0.95); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.5; }
+            100% { transform: scale(0.95); opacity: 1; }
+        }
+
+        /* Glitch Button */
+        .btn-glitch {
+            position: relative;
             overflow: hidden;
+            transition: all 0.1s ease;
         }
-        .hud {
-            border: 1px solid #FBBF24;
-            padding: 30px;
-            background: rgba(251, 191, 36, 0.05);
-            box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
-            width: 100%;
-            max-width: 300px;
+        .btn-glitch:active {
+            transform: scale(0.95);
         }
-        h1 { color: #FBBF24; font-size: 24px; text-transform: uppercase; margin-bottom: 5px; }
-        p { color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; }
-        .data { font-size: 32px; font-weight: bold; margin: 20px 0; color: #fff; }
-        .btn {
-            background: #FBBF24;
-            color: #000;
-            border: none;
-            padding: 15px 30px;
-            font-size: 16px;
-            font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            margin-top: 20px;
-            width: 100%;
+        
+        /* Terminal Stream */
+        .terminal {
+            font-size: 10px;
+            color: #34d399;
+            text-shadow: 0 0 5px rgba(52, 211, 153, 0.5);
+            max-height: 100px;
+            overflow: hidden;
+            mask-image: linear-gradient(to top, rgba(0,0,0,1) 50%, rgba(0,0,0,0));
+            -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 50%, rgba(0,0,0,0));
         }
-        .status { margin-top: 20px; font-size: 10px; color: #34d399; }
+
+        /* Screen Shake */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-active {
+            animation: shake 0.5s;
+            animation-iteration-count: infinite;
+        }
+        .flash-red {
+            box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.3) !important;
+        }
     </style>
 </head>
-<body>
-    <div class="hud">
-        <h1>NPU Trace</h1>
-        <p>Telemetry Node</p>
+<body class="flex flex-col h-[100dvh] w-screen transition-all duration-300" id="body-container">
+
+    <!-- Header -->
+    <header class="p-4 flex justify-between items-center border-b border-[#222] bg-black/80 z-10">
+        <div class="flex items-center gap-2">
+            <div class="w-3 h-3 bg-yellow-500 rounded-sm"></div>
+            <h1 class="cyber-text font-black text-xl text-yellow-500 tracking-wider">iQOO NPU</h1>
+        </div>
+        <div id="status-indicator" class="px-2 py-1 rounded text-[10px] font-bold tracking-widest bg-zinc-800 text-zinc-400 border border-zinc-700">
+            OFFLINE
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-center p-6 relative z-10 gap-8">
         
-        <div id="status" class="status">Connecting to Uplink...</div>
+        <!-- Activity Ring -->
+        <div class="ring-container" id="ring-container">
+            <div class="pulse-ring idle" id="pulse-ring"></div>
+            <div class="z-10 flex flex-col items-center justify-center bg-black/60 rounded-full w-[160px] h-[160px] border border-zinc-800 glass-panel">
+                <span class="text-[10px] text-zinc-500 tracking-widest mb-1">NPU LOAD</span>
+                <span class="text-4xl font-black text-white" id="npu-val">--%</span>
+                <span class="text-xs text-yellow-500 mt-2" id="temp-val">--°C</span>
+            </div>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div class="grid grid-cols-2 gap-4 w-full max-w-sm">
+            <div class="glass-panel p-3 rounded flex flex-col items-center border-l-2 border-l-blue-500">
+                <span class="text-[9px] text-zinc-500">LATENCY</span>
+                <span class="text-lg font-bold text-blue-400" id="lat-val">-- ms</span>
+            </div>
+            <div class="glass-panel p-3 rounded flex flex-col items-center border-l-2 border-l-red-500">
+                <span class="text-[9px] text-zinc-500">DRAIN</span>
+                <span class="text-lg font-bold text-red-400" id="bat-val">-- mA</span>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="w-full max-w-sm flex flex-col gap-3 mt-4" id="controls-container" style="display: none;">
+            <button id="btn-stress" class="btn-glitch w-full py-4 bg-yellow-500 text-black font-black text-lg rounded cyber-text tracking-widest shadow-[0_0_15px_rgba(251,191,36,0.4)]" onclick="triggerStress()">
+                OVERCLOCK NPU
+            </button>
+            <button id="btn-disconnect" class="btn-glitch w-full py-3 bg-transparent border border-red-500/50 text-red-500 font-bold text-sm rounded cyber-text hover:bg-red-500/10" onclick="disconnectNode()">
+                TERMINATE LINK
+            </button>
+        </div>
         
-        <div class="data" id="npu">NPU: --%</div>
-        <div class="data" id="temp">TMP: --°C</div>
-        
-        <button class="btn" id="stress" onclick="triggerStress()">Spike NPU Load</button>
-        <button class="btn" id="disconnect" style="background: #ef4444; margin-top: 10px;" onclick="disconnectNode()">Disconnect Uplink</button>
+        <div class="w-full max-w-sm flex flex-col gap-3 mt-4" id="connect-container">
+            <button class="btn-glitch w-full py-4 bg-yellow-500 text-black font-black text-lg rounded cyber-text tracking-widest shadow-[0_0_15px_rgba(251,191,36,0.4)]" onclick="connect()">
+                INITIATE UPLINK
+            </button>
+        </div>
+
+    </main>
+
+    <!-- Terminal Logger -->
+    <div class="h-24 w-full bg-black/90 border-t border-[#222] p-2 flex flex-col justify-end z-10">
+        <div class="terminal flex flex-col justify-end gap-1" id="terminal-log">
+            <div>[SYS] Waiting for pairing authorization...</div>
+        </div>
     </div>
 
     <script>
-        const statusEl = document.getElementById('status');
-        const npuEl = document.getElementById('npu');
-        const tempEl = document.getElementById('temp');
+        const statusInd = document.getElementById('status-indicator');
+        const npuVal = document.getElementById('npu-val');
+        const tempVal = document.getElementById('temp-val');
+        const latVal = document.getElementById('lat-val');
+        const batVal = document.getElementById('bat-val');
+        const pulseRing = document.getElementById('pulse-ring');
+        const terminalLog = document.getElementById('terminal-log');
+        const bodyContainer = document.getElementById('body-container');
+        const controlsContainer = document.getElementById('controls-container');
+        const connectContainer = document.getElementById('connect-container');
         
         let baselineNpu = 20;
         let baselineTemp = 35;
@@ -70,9 +199,20 @@
         let ws;
         let intentionallyDisconnected = false;
         
-        // --- THE TOP-NOTCH HACK: WEB WORKER FOR BACKGROUND EXECUTION ---
-        // Browsers pause main-thread setIntervals when minimized. 
-        // A Web Worker runs in a separate background thread!
+        // Haptic feedback helper
+        function vibrate(pattern) {
+            if (navigator.vibrate) navigator.vibrate(pattern);
+        }
+
+        function logTerminal(msg, color="text-[#34d399]") {
+            const el = document.createElement('div');
+            el.className = color;
+            el.innerText = `> ${msg}`;
+            terminalLog.appendChild(el);
+            if(terminalLog.children.length > 8) terminalLog.removeChild(terminalLog.firstChild);
+        }
+
+        // Web Worker for background reliability
         const workerCode = `
             let timer;
             self.onmessage = function(e) {
@@ -86,49 +226,50 @@
         const blob = new Blob([workerCode], { type: 'application/javascript' });
         const timerWorker = new Worker(URL.createObjectURL(blob));
 
-        let streamInterval;
         let audioCtx;
 
         async function requestWakeLock() {
             try {
-                if ('wakeLock' in navigator) {
-                    await navigator.wakeLock.request('screen');
-                }
+                if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
             } catch (err) {}
         }
         
-        // --- THE TOP-NOTCH HACK 2: SILENT AUDIO ---
-        // Tricks mobile OS into thinking the app is a music player so it doesn't pause background JS
         function startSilentAudio() {
             try {
-                if (!audioCtx) {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                }
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
                 const oscillator = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
-                gainNode.gain.value = 0.001; // Almost silent but active
+                gainNode.gain.value = 0.001;
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 oscillator.start();
-                // We keep it running in the background indefinitely
             } catch (e) {}
         }
 
         function connect() {
-            if (intentionallyDisconnected) return;
+            intentionallyDisconnected = false;
+            logTerminal("Initiating handshake protocol...", "text-yellow-400");
+            vibrate(50);
+            
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${protocol}//${window.location.host}/ws/telemetry`);
             
             ws.onopen = () => {
-                statusEl.innerText = "UPLINK ESTABLISHED";
-                statusEl.style.color = "#FBBF24";
-                const discBtn = document.getElementById('disconnect');
-                if(discBtn) discBtn.style.display = 'block';
+                vibrate([50, 50, 100]);
+                statusInd.innerText = "LINK ACTIVE";
+                statusInd.className = "px-2 py-1 rounded text-[10px] font-bold tracking-widest bg-yellow-500/20 text-yellow-500 border border-yellow-500/50";
+                
+                pulseRing.className = "pulse-ring"; // Remove idle
+                controlsContainer.style.display = 'flex';
+                connectContainer.style.display = 'none';
+                
+                logTerminal("Uplink established. Telemetry streaming.", "text-[#34d399]");
                 
                 requestWakeLock();
                 startSilentAudio();
                 
-                timerWorker.postMessage('stop'); // Reset if existing
+                timerWorker.postMessage('stop');
                 timerWorker.postMessage('start');
             };
             
@@ -140,9 +281,15 @@
                 let latency = isStress ? 45 + Math.random() * 10 : 12 + Math.random() * 3;
                 let battery = isStress ? -800 : -200;
                 
-                npuEl.innerText = `NPU: ${npu.toFixed(1)}%`;
-                tempEl.innerText = `TMP: ${temp.toFixed(1)}°C`;
+                npuVal.innerText = `${npu.toFixed(1)}%`;
+                tempVal.innerText = `${temp.toFixed(1)}°C`;
+                latVal.innerText = `${latency.toFixed(1)} ms`;
+                batVal.innerText = `${Math.abs(battery).toFixed(0)} mA`;
                 
+                if(!isStress) {
+                    logTerminal(`0x${Math.floor(Math.random()*16777215).toString(16).toUpperCase()} -> SEND T:${Date.now().toString().slice(-4)}`);
+                }
+
                 ws.send(JSON.stringify({
                     timestamp: Date.now(),
                     npu_load_pct: npu,
@@ -156,38 +303,63 @@
                 try {
                     const msg = JSON.parse(event.data);
                     if (msg.type === "command" && msg.data === "STRESS_TEST") {
-                        isStress = true;
-                        setTimeout(() => { isStress = false; }, 5000);
+                        activateOverclockUI();
                     }
                 } catch(e) {}
             };
             
             ws.onclose = () => {
                 timerWorker.postMessage('stop');
+                pulseRing.className = "pulse-ring idle";
+                controlsContainer.style.display = 'none';
+                connectContainer.style.display = 'flex';
+                
                 if (intentionallyDisconnected) {
-                    statusEl.innerText = "DISCONNECTED BY USER";
-                    statusEl.style.color = "#888";
+                    statusInd.innerText = "TERMINATED";
+                    statusInd.className = "px-2 py-1 rounded text-[10px] font-bold tracking-widest bg-zinc-800 text-zinc-500 border border-zinc-700";
+                    logTerminal("User terminated uplink manually.", "text-zinc-500");
                 } else {
-                    statusEl.innerText = "SIGNAL LOST... RECONNECTING";
-                    statusEl.style.color = "#dc2626";
+                    statusInd.innerText = "SIGNAL LOST";
+                    statusInd.className = "px-2 py-1 rounded text-[10px] font-bold tracking-widest bg-red-500/20 text-red-500 border border-red-500/50";
+                    logTerminal("Connection dropped! Retrying in 2s...", "text-red-500");
                     setTimeout(connect, 2000);
                 }
-                const discBtn = document.getElementById('disconnect');
-                if(discBtn) discBtn.style.display = 'none';
             };
         }
 
-        connect();
-        
-        window.triggerStress = () => {
+        function activateOverclockUI() {
+            if(isStress) return;
             isStress = true;
+            vibrate([100, 50, 100, 50, 300]);
+            
+            pulseRing.className = "pulse-ring active";
+            bodyContainer.classList.add("shake-active", "flash-red");
+            document.getElementById('btn-stress').innerText = "SYSTEM OVERLOAD...";
+            document.getElementById('btn-stress').classList.replace("bg-yellow-500", "bg-red-500");
+            
+            logTerminal("WARNING: THERMAL LIMITS EXCEEDED", "text-red-500");
+            logTerminal("Executing unsafe AI workload...", "text-red-500");
+
+            setTimeout(() => { 
+                isStress = false; 
+                pulseRing.className = "pulse-ring";
+                bodyContainer.classList.remove("shake-active", "flash-red");
+                document.getElementById('btn-stress').innerText = "OVERCLOCK NPU";
+                document.getElementById('btn-stress').classList.replace("bg-red-500", "bg-yellow-500");
+                logTerminal("Overclock cycle complete. Cooling...", "text-yellow-400");
+            }, 5000);
+        }
+
+        window.triggerStress = () => {
+            vibrate(50);
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ command: "TRIGGER_STRESS_TEST" }));
             }
-            setTimeout(() => { isStress = false; }, 5000);
+            activateOverclockUI();
         };
 
         window.disconnectNode = () => {
+            vibrate([50, 100]);
             intentionallyDisconnected = true;
             if (ws) ws.close();
         };
@@ -196,6 +368,7 @@
             if (document.visibilityState === 'visible' && !intentionallyDisconnected) {
                 requestWakeLock();
                 if (!ws || ws.readyState === WebSocket.CLOSED) {
+                    logTerminal("Resuming from background...", "text-yellow-400");
                     connect();
                 }
             }
