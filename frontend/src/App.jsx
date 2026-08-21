@@ -101,6 +101,9 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [status, setStatus] = useState('Waiting for Edge Node...');
   const [sessionUptime, setSessionUptime] = useState(0);
+  const lastTelemetryTime = useRef(Date.now());
+  const isPredictiveMode = useRef(false);
+  const latestTelemetryData = useRef({ npu: 20, temp: 40, latency: 15, battery: -200 });
   
   const [telemetry, setTelemetry] = useState({
     npu: Array(MAX_DATA_POINTS).fill(0),
@@ -164,7 +167,18 @@ export default function App() {
         const msg = JSON.parse(event.data);
         if (msg.type === "telemetry") {
           setShowQR(false); // Auto close QR modal
-          setStatus('Connected (Edge Node Active)');
+          if (statusRef.current !== 'Connected (SIM)') {
+            setStatus('Connected (Edge Node Active)');
+          }
+          lastTelemetryTime.current = Date.now();
+          isPredictiveMode.current = false;
+          latestTelemetryData.current = {
+            npu: msg.data.npu_load_pct,
+            temp: msg.data.chip_temp_celsius,
+            latency: msg.data.token_latency_ms,
+            battery: msg.data.battery_drain_ma
+          };
+          
           setTelemetry(prev => ({
             npu: [...prev.npu.slice(1), msg.data.npu_load_pct],
             latency: [...prev.latency.slice(1), msg.data.token_latency_ms],
@@ -366,6 +380,38 @@ export default function App() {
       clearInterval(demoIntervalRef.current);
     };
   }, [demoMode]);
+
+  // --- PREDICTIVE TELEMETRY (DEAD RECKONING) ---
+  // Keeps the dashboard running smoothly even if the mobile OS throttles/pauses the web worker!
+  useEffect(() => {
+    const predictor = setInterval(() => {
+      if (statusRef.current.includes('Active')) {
+        const timeSinceLastMsg = Date.now() - lastTelemetryTime.current;
+        if (timeSinceLastMsg > 1500) {
+          isPredictiveMode.current = true;
+          // Generate a predicted data point based on the last known values with slight drift
+          const last = latestTelemetryData.current;
+          const predictedNpu = Math.max(0, Math.min(100, last.npu + (Math.random() * 4 - 2)));
+          const predictedTemp = Math.max(20, Math.min(100, last.temp + (Math.random() * 2 - 1)));
+          const predictedLatency = Math.max(5, last.latency + (Math.random() * 4 - 2));
+          const predictedBattery = last.battery + (Math.random() * 10 - 5);
+          
+          latestTelemetryData.current = {
+            npu: predictedNpu, temp: predictedTemp, latency: predictedLatency, battery: predictedBattery
+          };
+          
+          setTelemetry(prev => ({
+            npu: [...prev.npu.slice(1), predictedNpu],
+            latency: [...prev.latency.slice(1), predictedLatency],
+            temp: [...prev.temp.slice(1), predictedTemp],
+            battery: predictedBattery,
+            batteryData: [...(prev.batteryData || Array(MAX_DATA_POINTS).fill(0)).slice(1), predictedBattery]
+          }));
+        }
+      }
+    }, 1000);
+    return () => clearInterval(predictor);
+  }, []);
 
   const generateReport = () => {
     const reportContent = `# NPU TRACE - AI AUDIT REPORT
@@ -635,8 +681,11 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
             <NodeTopology status={status} demoMode={demoMode} />
             <div className="flex items-center justify-between p-2 bg-black/50 border border-[#222] rounded backdrop-blur-md">
               <div className="flex flex-col">
-                <span className="text-[9px] font-mono font-bold text-[#666] tracking-[0.2em] uppercase">Telemetry Link {demoMode && <span className="text-yellow-500 ml-1">(SIM)</span>}</span>
-                <span className={`text-xs font-black uppercase tracking-widest ${status === 'Connected' ? 'text-[#34d399]' : 'text-red-500'}`}>
+                <span className="text-[9px] font-mono font-bold text-[#666] tracking-[0.2em] uppercase">
+                  Telemetry Link {demoMode && <span className="text-yellow-500 ml-1">(SIM)</span>}
+                  {!demoMode && isPredictiveMode.current && <span className="text-blue-400 ml-1">(PREDICTIVE)</span>}
+                </span>
+                <span className={`text-xs font-black uppercase tracking-widest ${status.includes('Connected') ? 'text-[#34d399]' : 'text-red-500'}`}>
                   {status}
                 </span>
               </div>
