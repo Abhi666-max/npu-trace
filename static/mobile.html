@@ -69,7 +69,22 @@
         let isStress = false;
         let ws;
         let intentionallyDisconnected = false;
-        let streamInterval;
+        
+        // --- THE TOP-NOTCH HACK: WEB WORKER FOR BACKGROUND EXECUTION ---
+        // Browsers pause main-thread setIntervals when minimized. 
+        // A Web Worker runs in a separate background thread!
+        const workerCode = `
+            let timer;
+            self.onmessage = function(e) {
+                if (e.data === 'start') {
+                    timer = setInterval(() => self.postMessage('tick'), 1000);
+                } else if (e.data === 'stop') {
+                    clearInterval(timer);
+                }
+            };
+        `;
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const timerWorker = new Worker(URL.createObjectURL(blob));
 
         async function requestWakeLock() {
             try {
@@ -91,26 +106,28 @@
                 if(discBtn) discBtn.style.display = 'block';
                 requestWakeLock();
                 
-                if (streamInterval) clearInterval(streamInterval);
-                streamInterval = setInterval(() => {
-                    let npu = isStress ? 95 + Math.random() * 5 : baselineNpu + Math.random() * 10;
-                    let temp = isStress ? 85 + Math.random() * 5 : baselineTemp + Math.random() * 5;
-                    let latency = isStress ? 45 + Math.random() * 10 : 12 + Math.random() * 3;
-                    let battery = isStress ? -800 : -200;
-                    
-                    npuEl.innerText = `NPU: ${npu.toFixed(1)}%`;
-                    tempEl.innerText = `TMP: ${temp.toFixed(1)}°C`;
-                    
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            timestamp: Date.now(),
-                            npu_load_pct: npu,
-                            token_latency_ms: latency,
-                            chip_temp_celsius: temp,
-                            battery_drain_ma: battery
-                        }));
-                    }
-                }, 1000);
+                timerWorker.postMessage('stop'); // Reset if existing
+                timerWorker.postMessage('start');
+            };
+            
+            timerWorker.onmessage = () => {
+                if (!ws || ws.readyState !== WebSocket.OPEN) return;
+                
+                let npu = isStress ? 95 + Math.random() * 5 : baselineNpu + Math.random() * 10;
+                let temp = isStress ? 85 + Math.random() * 5 : baselineTemp + Math.random() * 5;
+                let latency = isStress ? 45 + Math.random() * 10 : 12 + Math.random() * 3;
+                let battery = isStress ? -800 : -200;
+                
+                npuEl.innerText = `NPU: ${npu.toFixed(1)}%`;
+                tempEl.innerText = `TMP: ${temp.toFixed(1)}°C`;
+                
+                ws.send(JSON.stringify({
+                    timestamp: Date.now(),
+                    npu_load_pct: npu,
+                    token_latency_ms: latency,
+                    chip_temp_celsius: temp,
+                    battery_drain_ma: battery
+                }));
             };
             
             ws.onmessage = (event) => {
@@ -124,7 +141,7 @@
             };
             
             ws.onclose = () => {
-                if (streamInterval) clearInterval(streamInterval);
+                timerWorker.postMessage('stop');
                 if (intentionallyDisconnected) {
                     statusEl.innerText = "DISCONNECTED BY USER";
                     statusEl.style.color = "#888";
