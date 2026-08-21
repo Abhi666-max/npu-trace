@@ -86,12 +86,32 @@
         const blob = new Blob([workerCode], { type: 'application/javascript' });
         const timerWorker = new Worker(URL.createObjectURL(blob));
 
+        let streamInterval;
+        let audioCtx;
+
         async function requestWakeLock() {
             try {
                 if ('wakeLock' in navigator) {
                     await navigator.wakeLock.request('screen');
                 }
             } catch (err) {}
+        }
+        
+        // --- THE TOP-NOTCH HACK 2: SILENT AUDIO ---
+        // Tricks mobile OS into thinking the app is a music player so it doesn't pause background JS
+        function startSilentAudio() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0.001; // Almost silent but active
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                // We keep it running in the background indefinitely
+            } catch (e) {}
         }
 
         function connect() {
@@ -104,7 +124,9 @@
                 statusEl.style.color = "#FBBF24";
                 const discBtn = document.getElementById('disconnect');
                 if(discBtn) discBtn.style.display = 'block';
+                
                 requestWakeLock();
+                startSilentAudio();
                 
                 timerWorker.postMessage('stop'); // Reset if existing
                 timerWorker.postMessage('start');
