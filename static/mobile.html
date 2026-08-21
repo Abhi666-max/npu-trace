@@ -126,8 +126,8 @@
     <!-- Header -->
     <header class="p-4 flex justify-between items-center border-b border-[#222] bg-black/80 z-10">
         <div class="flex items-center gap-2">
-            <div class="w-3 h-3 bg-yellow-500 rounded-sm"></div>
-            <h1 class="cyber-text font-black text-xl text-yellow-500 tracking-wider">iQOO NPU</h1>
+            <div id="header-dot" class="w-3 h-3 bg-yellow-500 rounded-sm transition-colors duration-500"></div>
+            <h1 id="header-title" class="cyber-text font-black text-xl text-yellow-500 tracking-wider transition-colors duration-500">iQOO NPU</h1>
         </div>
         <div id="status-indicator" class="px-2 py-1 rounded text-[10px] font-bold tracking-widest bg-zinc-800 text-zinc-400 border border-zinc-700">
             OFFLINE
@@ -219,9 +219,10 @@
         const workerCode = `
             let timer;
             self.onmessage = function(e) {
-                if (e.data === 'start') {
-                    timer = setInterval(() => self.postMessage('tick'), 1000);
-                } else if (e.data === 'stop') {
+                if (e.data.type === 'start') {
+                    if(timer) clearInterval(timer);
+                    timer = setInterval(() => self.postMessage('tick'), e.data.interval || 1000);
+                } else if (e.data === 'stop' || e.data.type === 'stop') {
                     clearInterval(timer);
                 }
             };
@@ -269,11 +270,13 @@
                 
                 logTerminal("Uplink established. Telemetry streaming.", "text-[#34d399]");
                 
+                terminalLog.innerHTML = "";
+                logTerminal("Establishing telemetry uplink...", "text-zinc-500");
+                timerWorker.postMessage({type: 'stop'});
+                timerWorker.postMessage({type: 'start', interval: 1000});
+                
                 requestWakeLock();
                 startSilentAudio();
-                
-                timerWorker.postMessage('stop');
-                timerWorker.postMessage('start');
             };
             
             timerWorker.onmessage = () => {
@@ -305,16 +308,16 @@
             ws.onmessage = (event) => {
                 try {
                     const msg = JSON.parse(event.data);
-                    if (msg.type === "command" && msg.data === "STRESS_TEST") {
-                        activateOverclockUI();
-                    } else if (msg.type === "command" && msg.data === "DEPLOY_MODEL") {
-                        activateModelDeployedUI();
+                    if (msg.type === "command") {
+                        if (msg.data === "STRESS_TEST") activateOverclockUI();
+                        else if (msg.data === "DEPLOY_MODEL") activateModelDeployedUI();
+                        else if (msg.data.startsWith("SET_PROFILE_")) setHardwareProfile(msg.data.replace("SET_PROFILE_", ""));
                     }
                 } catch(e) {}
             };
             
             ws.onclose = () => {
-                timerWorker.postMessage('stop');
+                timerWorker.postMessage({type: 'stop'});
                 pulseRing.className = "pulse-ring idle";
                 controlsContainer.style.display = 'none';
                 connectContainer.style.display = 'flex';
@@ -353,6 +356,40 @@
                 document.getElementById('btn-stress').classList.replace("bg-red-500", "bg-yellow-500");
                 logTerminal("Overclock cycle complete. Cooling...", "text-yellow-400");
             }, 5000);
+        }
+
+        function setHardwareProfile(profile) {
+            vibrate([50, 50]);
+            let interval = 1000;
+            const titleEl = document.getElementById('header-title');
+            const dotEl = document.getElementById('header-dot');
+            
+            if (profile === "ECO") {
+                interval = 2500;
+                titleEl.className = "cyber-text font-black text-xl text-emerald-500 tracking-wider transition-colors duration-500";
+                dotEl.className = "w-3 h-3 bg-emerald-500 rounded-sm transition-colors duration-500";
+                logTerminal("PROFILE: ECO (Underclocked, Low Telemetry)", "text-emerald-500");
+                pulseRing.className = "pulse-ring idle";
+            } else if (profile === "PERFORMANCE") {
+                interval = 300;
+                titleEl.className = "cyber-text font-black text-xl text-red-500 tracking-wider transition-colors duration-500";
+                dotEl.className = "w-3 h-3 bg-red-500 rounded-sm transition-colors duration-500";
+                logTerminal("PROFILE: PERFORMANCE (Max Telemetry, High TDP)", "text-red-500");
+                pulseRing.className = "pulse-ring active";
+            } else {
+                interval = 1000;
+                titleEl.className = "cyber-text font-black text-xl text-yellow-500 tracking-wider transition-colors duration-500";
+                dotEl.className = "w-3 h-3 bg-yellow-500 rounded-sm transition-colors duration-500";
+                logTerminal("PROFILE: BALANCED (Standard Link)", "text-yellow-500");
+                pulseRing.className = "pulse-ring";
+            }
+            
+            // Adjust baseline NPU math visually for the demo
+            if (profile === "ECO") { baselineNpu = 10; baselineTemp = 35; }
+            else if (profile === "PERFORMANCE") { baselineNpu = 60; baselineTemp = 65; }
+            else { baselineNpu = 20; baselineTemp = 40; }
+            
+            timerWorker.postMessage({type: 'start', interval: interval});
         }
 
         function activateModelDeployedUI() {
