@@ -113,6 +113,16 @@
                 }, 1000);
             };
             
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === "command" && msg.data === "STRESS_TEST") {
+                        isStress = true;
+                        setTimeout(() => { isStress = false; }, 5000);
+                    }
+                } catch(e) {}
+            };
+            
             ws.onclose = () => {
                 if (streamInterval) clearInterval(streamInterval);
                 if (intentionallyDisconnected) {

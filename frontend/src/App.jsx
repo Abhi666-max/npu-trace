@@ -121,6 +121,12 @@ export default function App() {
   const [showQR, setShowQR] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   const demoIntervalRef = useRef(null);
+  
+  const demoModeRef = useRef(demoMode);
+  const statusRef = useRef(status);
+  
+  useEffect(() => { demoModeRef.current = demoMode; }, [demoMode]);
+  useEffect(() => { statusRef.current = status; }, [status]);
 
   const onDrop = async (acceptedFiles) => {
     const file = acceptedFiles[0];
@@ -155,7 +161,7 @@ export default function App() {
       wsRef.current = ws;
       ws.onopen = () => setStatus('Waiting for Edge Node...');
       ws.onmessage = (event) => {
-        if (demoMode) return;
+        if (demoModeRef.current) return;
         const msg = JSON.parse(event.data);
         if (msg.type === "telemetry") {
           setShowQR(false); // Auto close QR modal
@@ -211,6 +217,11 @@ export default function App() {
           setCodeFix({ file: msg.file, data: msg.data });
           const time = new Date().toLocaleTimeString('en-US', { hour12: false });
           setLogs(prev => [...prev.slice(-100), { time, message: msg.data, id: Math.random().toString(36).substr(2, 9) }]);
+        } else if (msg.type === "command" && msg.data === "STRESS_TEST") {
+          if (!statusRef.current.includes('Active')) {
+            setDemoMode(true);
+            setTimeout(() => setDemoMode(false), 8000);
+          }
         }
       };
       ws.onclose = () => {
@@ -223,7 +234,7 @@ export default function App() {
       clearTimeout(reconnectTimeout);
       if (wsRef.current) wsRef.current.close();
     };
-  }, [demoMode]);
+  }, []);
 
   useEffect(() => {
     let interval;
