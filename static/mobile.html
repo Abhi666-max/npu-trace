@@ -116,6 +116,9 @@
         .flash-red {
             box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.3) !important;
         }
+        .flash-green {
+            box-shadow: inset 0 0 100px rgba(16, 185, 129, 0.3) !important;
+        }
     </style>
 </head>
 <body class="flex flex-col h-[100dvh] w-screen transition-all duration-300" id="body-container">
@@ -304,6 +307,8 @@
                     const msg = JSON.parse(event.data);
                     if (msg.type === "command" && msg.data === "STRESS_TEST") {
                         activateOverclockUI();
+                    } else if (msg.type === "command" && msg.data === "DEPLOY_MODEL") {
+                        activateModelDeployedUI();
                     }
                 } catch(e) {}
             };
@@ -348,6 +353,31 @@
                 document.getElementById('btn-stress').classList.replace("bg-red-500", "bg-yellow-500");
                 logTerminal("Overclock cycle complete. Cooling...", "text-yellow-400");
             }, 5000);
+        }
+
+        function activateModelDeployedUI() {
+            vibrate([100, 50, 100, 50, 100, 50, 500]);
+            bodyContainer.classList.add("flash-green");
+            
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 bg-emerald-500/20 z-50 flex items-center justify-center backdrop-blur-sm transition-all";
+            overlay.innerHTML = `
+                <div class="bg-black border-2 border-emerald-500 p-8 text-center flex flex-col items-center gap-4 animate-bounce">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                    <h1 class="text-emerald-500 text-2xl font-black tracking-widest uppercase">MODEL DEPLOYED</h1>
+                    <p class="text-emerald-400 font-mono text-xs">INT8 Quantized Graph running on NPU</p>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            
+            logTerminal("SUCCESS: INT8 Model graph deployed to NPU memory.", "text-emerald-400");
+            
+            setTimeout(() => {
+                if (document.body.contains(overlay)) {
+                    document.body.removeChild(overlay);
+                }
+                bodyContainer.classList.remove("flash-green");
+            }, 3000);
         }
 
         window.triggerStress = () => {

@@ -14,7 +14,7 @@ import {
 } from 'chart.js';
 import { 
   Activity, Zap, Thermometer, List, Terminal, 
-  AlertTriangle, Play, LayoutDashboard, History, Settings, ChevronRight, Cpu, Menu, X, Download, Shield, Battery
+  AlertTriangle, Play, LayoutDashboard, History, Settings, ChevronRight, Cpu, Menu, X, Download, Shield, Battery, Box, Layers, CheckCircle
 } from 'lucide-react';
 import { FaGithub, FaLinkedin, FaTwitter, FaInstagram } from 'react-icons/fa';
 import { useDropzone } from 'react-dropzone';
@@ -122,6 +122,12 @@ export default function App() {
   const wsRef = useRef(null);
   const [showQR, setShowQR] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
+  
+  // Quantizer States
+  const [quantizeState, setQuantizeState] = useState('IDLE');
+  const [quantizeProgress, setQuantizeProgress] = useState(0);
+  const [quantizeLog, setQuantizeLog] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('Llama-3 (8B)');
   const demoIntervalRef = useRef(null);
   
   const demoModeRef = useRef(demoMode);
@@ -508,10 +514,48 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
     URL.revokeObjectURL(url);
   };
 
+  const startQuantization = () => {
+    setQuantizeState('QUANTIZING');
+    setQuantizeProgress(0);
+    setQuantizeLog([`[0.0s] Initializing ${selectedModel} FP32 Checkpoint...`, '[0.5s] Analyzing memory footprint...']);
+    
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 2;
+      setQuantizeProgress(p);
+      if (p === 20) setQuantizeLog(l => [...l, '[2.1s] Pruning zero-activation weights...']);
+      if (p === 40) setQuantizeLog(l => [...l, '[4.5s] Computing INT8 quantization scales for Snapdragon NPU...']);
+      if (p === 60) setQuantizeLog(l => [...l, '[7.2s] Folding BatchNorm and Activation layers...']);
+      if (p === 80) setQuantizeLog(l => [...l, '[9.8s] Serializing optimized execution graph to .tflite...']);
+      
+      if (p >= 100) {
+        clearInterval(interval);
+        setQuantizeState('DONE');
+        setQuantizeLog(l => [...l, '[12.4s] Quantization Complete! Ready for Edge Node Deployment.']);
+      }
+    }, 100);
+  };
+
+  const deployToEdge = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ command: 'DEPLOY_MODEL' }));
+      const newAlert = { id: Date.now(), text: 'NPU Model Deployed Successfully!', type: 'success' };
+      setAlerts(prev => [...prev, newAlert]);
+      setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== newAlert.id)), 4000);
+      setQuantizeState('IDLE');
+      setQuantizeLog([]);
+      setQuantizeProgress(0);
+    } else {
+      const newAlert = { id: Date.now(), text: 'Edge Node disconnected! Cannot deploy.', type: 'error' };
+      setAlerts(prev => [...prev, newAlert]);
+      setTimeout(() => setAlerts(prev => prev.filter(a => a.id !== newAlert.id)), 4000);
+    }
+  };
+
   const navItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Live HUD' },
     { id: 'history', icon: History, label: 'Trace History' },
-    { id: 'terminal', icon: Terminal, label: 'AI Build Logs' },
+    { id: 'quantizer', icon: Box, label: 'Model Quantizer' },
     { id: 'settings', icon: Settings, label: 'Hardware Config' },
   ];
 
@@ -947,67 +991,121 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
               </motion.div>
             )}
 
-            {/* 3. TERMINAL VIEW */}
-            {currentView === 'terminal' && (
+            {/* 3. QUANTIZER VIEW */}
+            {currentView === 'quantizer' && (
               <motion.div 
-                key="terminal"
+                key="quantizer"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="max-w-[1600px] mx-auto w-full h-full flex flex-col"
+                className="max-w-[1200px] mx-auto w-full h-full flex flex-col gap-6"
               >
-                <div className="hud-panel flex-1 flex flex-col bg-[#050505] scanlines">
-                  <div className="px-5 py-3 border-b border-[#222] flex items-center gap-3 bg-[#0a0a0c] z-10">
-                    <span className="text-xs font-mono font-bold text-[#888] uppercase">root@nputrace-autoopt:~#</span>
-                  </div>
-                  <div className="flex-1 overflow-auto custom-scrollbar p-6 font-mono text-xs leading-relaxed text-[#FBBF24] z-10 font-bold shadow-[inset_0_0_50px_rgba(251,191,36,0.1)]">
-                    <div className="mb-4 text-[#888]">
-                      NPU Trace AI Optimizer Engine v8.0<br/>
-                      Tracking Watchdog events in /target_builds...<br/>
-                      =================================================<br/>
-                    </div>
-                    {logs.map((log) => (
-                      <div key={log.id} className="flex gap-4 hover:bg-[#111] px-2 py-1">
-                        <span className="text-[#666] shrink-0">[{log.time}]</span>
-                        <span className={log.message.includes('AI ENGINE') ? 'text-white bg-[#FBBF24]/20 px-1' : log.message.includes('CRITICAL') || log.message.includes('Failed') ? 'text-red-500' : ''}>
-                          {log.message}
-                        </span>
+                <div className="flex flex-col gap-2">
+                  <h1 className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-3">
+                    <Box className="w-8 h-8 text-[#FBBF24]" /> AI Model Quantization Lab
+                  </h1>
+                  <p className="text-[#888] font-mono text-xs">Compress heavily-parameterized FP32 models to INT8 for extreme efficiency on the iQOO NPU Edge Node.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Panel: Configuration */}
+                  <div className="hud-panel p-6 flex flex-col gap-6">
+                    <div>
+                      <h3 className="text-[11px] font-bold text-[#666] tracking-[0.2em] uppercase mb-3">Target Model Payload</h3>
+                      <div className="flex flex-col gap-2">
+                        {['Llama-3 (8B)', 'Vision Transformer (ViT-H)', 'Whisper-v3'].map(m => (
+                          <button 
+                            key={m}
+                            onClick={() => quantizeState === 'IDLE' && setSelectedModel(m)}
+                            className={`px-4 py-3 border text-left font-bold font-mono text-sm uppercase tracking-wide transition-colors ${
+                              selectedModel === m 
+                                ? 'bg-[#FBBF24]/10 border-[#FBBF24] text-[#FBBF24] shadow-[inset_0_0_15px_rgba(251,191,36,0.1)]' 
+                                : 'border-[#222] text-[#666] hover:bg-[#111] hover:text-white'
+                            } ${quantizeState !== 'IDLE' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            {m}
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                     
-                    {codeFix && (
-                      <div className="mt-6 border border-red-900 bg-[#1a0505] p-4 relative glitch-btn shadow-[0_0_15px_rgba(220,38,38,0.2)]">
-                        <h4 className="text-red-500 font-bold mb-3 flex items-center gap-2 uppercase tracking-widest text-xs">
-                          <AlertTriangle className="w-4 h-4 animate-pulse" /> 
-                          AI Code Healer: Memory Leak Detected in {codeFix.file}
-                        </h4>
-                        
-                        <div className="grid grid-cols-2 gap-4 mb-4 font-mono text-[10px]">
-                          <div className="border border-[#333] bg-[#000]">
-                            <div className="bg-[#220000] text-red-400 px-2 py-1 border-b border-[#333] font-bold">Old Code (Slow)</div>
-                            <pre className="p-2 text-[#888]">{codeFix.original}</pre>
+                    <div className="grid grid-cols-2 gap-4 mt-auto">
+                      <div className="bg-[#111] border border-[#222] p-4 flex flex-col items-center justify-center text-center">
+                        <span className="text-[9px] text-[#666] tracking-[0.2em] uppercase mb-1">Original FP32 Size</span>
+                        <span className="text-xl font-black text-red-500">16.2 GB</span>
+                      </div>
+                      <div className="bg-[#111] border border-[#222] p-4 flex flex-col items-center justify-center text-center">
+                        <span className="text-[9px] text-[#666] tracking-[0.2em] uppercase mb-1">Target INT8 Size</span>
+                        <span className="text-xl font-black text-[#34d399]">4.1 GB</span>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={startQuantization}
+                      disabled={quantizeState !== 'IDLE'}
+                      className={`relative w-full py-4 text-xs font-black tracking-widest uppercase transition-all duration-300 ${
+                        quantizeState === 'IDLE'
+                          ? 'bg-black border border-[#FBBF24] text-[#FBBF24] hover:bg-[#FBBF24] hover:text-black shadow-[0_0_15px_rgba(251,191,36,0.2)]'
+                          : 'bg-[#222] text-[#555] border border-[#333] cursor-not-allowed'
+                      }`}
+                    >
+                      {quantizeState === 'IDLE' ? 'Initiate INT8 Quantization' : 'Quantization Engine Locked'}
+                    </button>
+                  </div>
+
+                  {/* Right Panel: Compilation Output */}
+                  <div className="hud-panel p-0 flex flex-col scanlines relative bg-[#050505]">
+                    <div className="px-5 py-4 border-b border-[#222] bg-[#0a0a0c] z-10 flex items-center justify-between">
+                      <span className="text-xs font-mono font-bold text-[#888] uppercase">root@nputrace-compiler:~#</span>
+                      {quantizeState === 'QUANTIZING' && <Activity className="w-4 h-4 text-[#FBBF24] animate-spin" />}
+                    </div>
+                    
+                    <div className="p-6 flex-1 flex flex-col gap-6 z-10">
+                      {/* Progress Bar */}
+                      {quantizeState !== 'IDLE' && (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex justify-between text-[10px] font-bold font-mono tracking-widest text-[#FBBF24]">
+                            <span>COMPILING GRAPH</span>
+                            <span>{quantizeProgress}%</span>
                           </div>
-                          <div className="border border-[#333] bg-[#000]">
-                            <div className="bg-[#002200] text-[#34d399] px-2 py-1 border-b border-[#333] font-bold">AI Suggested Fix (Fast)</div>
-                            <pre className="p-2 text-[#34d399]">{codeFix.optimized}</pre>
+                          <div className="h-2 w-full bg-[#111] border border-[#333] overflow-hidden">
+                            <div className="h-full bg-[#FBBF24] transition-all duration-75" style={{ width: `${quantizeProgress}%` }}></div>
                           </div>
                         </div>
+                      )}
 
-                        <button 
-                          onClick={applyAiFix}
-                          className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 uppercase tracking-widest text-xs transition-colors"
-                        >
-                          Apply AI Fix
-                        </button>
+                      {/* Logs */}
+                      <div className="flex-1 font-mono text-xs text-[#888] flex flex-col gap-2 overflow-y-auto custom-scrollbar">
+                        {quantizeState === 'IDLE' ? (
+                          <div className="flex h-full items-center justify-center text-[#444] animate-pulse">
+                            Awaiting compilation trigger...
+                          </div>
+                        ) : (
+                          quantizeLog.map((log, i) => (
+                            <div key={i} className={`flex gap-3 px-2 ${i === quantizeLog.length - 1 && quantizeState === 'DONE' ? 'text-[#34d399] font-bold bg-[#34d399]/10 py-2' : ''}`}>
+                              <span className="text-[#FBBF24] shrink-0">{'>'}</span>
+                              <span>{log}</span>
+                            </div>
+                          ))
+                        )}
                       </div>
-                    )}
-
-                    <div className="flex gap-4 mt-2 px-2">
-                      <span className="text-[#666]">[{new Date().toLocaleTimeString('en-US', { hour12: false })}]</span>
-                      <span className="animate-pulse bg-[#FBBF24] text-black px-1">_</span>
+                      
+                      {/* Action Button */}
+                      {quantizeState === 'DONE' && (
+                        <motion.button 
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          onClick={deployToEdge}
+                          className="mt-auto w-full py-4 bg-[#34d399]/10 border border-[#34d399] text-[#34d399] text-xs font-black tracking-widest uppercase hover:bg-[#34d399]/20 transition-colors shadow-[0_0_20px_rgba(52,211,153,0.2)] flex items-center justify-center gap-3 glitch-btn"
+                        >
+                          <CheckCircle className="w-5 h-5" /> Deploy Model to Edge Node
+                        </motion.button>
+                      )}
                     </div>
-                    <div ref={terminalEndRef} />
                   </div>
+                </div>
+              </motion.div>
+            )}
                 </div>
               </motion.div>
             )}
