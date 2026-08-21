@@ -174,12 +174,14 @@ export default function App() {
             batteryData: [...(prev.batteryData || Array(MAX_DATA_POINTS).fill(0)).slice(1), msg.data.battery_drain_ma]
           }));
         } else if (msg.type === "node_status" && msg.data === "offline") {
-          setStatus('Connection Lost (Node Offline)');
-          const alertId = Math.random().toString(36).substr(2, 9) + Date.now();
-          setAlerts(prev => [...prev, { id: alertId, text: "Uplink to Edge Node lost.", type: 'alert' }]);
-          setTimeout(() => {
-            setAlerts(prev => prev.filter(a => a.id !== alertId));
-          }, 6000);
+          if (statusRef.current.includes('Active')) {
+            setStatus('Connection Lost (Node Offline)');
+            const alertId = Math.random().toString(36).substr(2, 9) + Date.now();
+            setAlerts(prev => [...prev, { id: alertId, text: "Uplink to Edge Node lost.", type: 'alert' }]);
+            setTimeout(() => {
+              setAlerts(prev => prev.filter(a => a.id !== alertId));
+            }, 6000);
+          }
         } else if (msg.type === "log") {
           const time = new Date().toLocaleTimeString('en-US', { hour12: false });
           const message = msg.data;
@@ -421,9 +423,14 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
 
   // Deploy Readiness Score
   const calcDeployScore = () => {
-    const lat = telemetry.latency[telemetry.latency.length - 1] || 50;
-    const tmp = telemetry.temp[telemetry.temp.length - 1] || 80;
-    const npu = telemetry.npu[telemetry.npu.length - 1] || 80;
+    const lastLat = telemetry.latency[telemetry.latency.length - 1];
+    const lastTmp = telemetry.temp[telemetry.temp.length - 1];
+    const lastNpu = telemetry.npu[telemetry.npu.length - 1];
+    
+    const lat = lastLat !== undefined ? lastLat : 50;
+    const tmp = lastTmp !== undefined ? lastTmp : 80;
+    const npu = lastNpu !== undefined ? lastNpu : 80;
+    
     let score = 0;
     score += lat < 10 ? 25 : lat < 20 ? 18 : lat < 40 ? 10 : 0;
     score += tmp < 50 ? 25 : tmp < 65 ? 18 : tmp < 80 ? 10 : 0;
