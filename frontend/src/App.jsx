@@ -1106,9 +1106,7 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
                 </div>
               </motion.div>
             )}
-                </div>
-              </motion.div>
-            )}
+
 
             {/* 4. HARDWARE CONFIG VIEW */}
             {currentView === 'settings' && (
