@@ -286,6 +286,8 @@ export default function App() {
           battery: 0,
           batteryData: Array(MAX_DATA_POINTS).fill(0)
         });
+        setDeployScore(86);
+        setLogs([]);
         return;
       }
       switch(e.key) {
@@ -349,11 +351,19 @@ export default function App() {
 
       }, 1000);
     } else {
-      if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
+      clearInterval(demoIntervalRef.current);
+      setStatus('Waiting for Edge Node...');
+      setTelemetry({
+        npu: Array(50).fill(0),
+        temp: Array(50).fill(0),
+        latency: Array(50).fill(0),
+        battery: 0,
+        batteryData: Array(50).fill(0)
+      });
     }
 
     return () => {
-      if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
+      clearInterval(demoIntervalRef.current);
     };
   }, [demoMode]);
 
@@ -596,15 +606,27 @@ ${alerts.map(a => `- ${a.text}`).join('\n') || '- No active alerts.'}
         <div className="p-4 lg:p-6 border-t border-[#333] mt-auto bg-gradient-to-t from-[#FBBF24]/5 to-transparent relative overflow-hidden group shrink-0">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IiMzMzMiLz48L3N2Zz4=')] opacity-20 group-hover:opacity-40 transition-opacity"></div>
           <div className="relative z-10 flex flex-col gap-4">
-            <button 
-              onClick={() => setShowQR(true)}
-              className="relative w-full py-3 bg-black border border-[#FBBF24] text-[#FBBF24] text-xs font-black tracking-widest uppercase hover:bg-[#FBBF24] hover:text-black transition-all duration-300 overflow-hidden shadow-[0_0_15px_rgba(251,191,36,0.2)] hover:shadow-[0_0_25px_rgba(251,191,36,0.6)]"
-            >
-              <span className="relative z-10 flex items-center justify-center gap-2">
-                <Activity className="w-4 h-4 animate-pulse" />
-                INITIATE PAIRING
-              </span>
-            </button>
+            {status.includes('Active') || status.includes('SIM') ? (
+              <button 
+                onClick={() => {
+                  if (wsRef.current) wsRef.current.close();
+                  setStatus('Waiting for Edge Node...');
+                }}
+                className="relative w-full py-3 bg-black border border-red-500 text-red-500 text-xs font-black tracking-widest uppercase hover:bg-red-500 hover:text-black transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:shadow-[0_0_25px_rgba(239,68,68,0.6)]"
+              >
+                DISCONNECT NODE
+              </button>
+            ) : (
+              <button 
+                onClick={() => setShowQR(true)}
+                className="relative w-full py-3 bg-black border border-[#FBBF24] text-[#FBBF24] text-xs font-black tracking-widest uppercase hover:bg-[#FBBF24] hover:text-black transition-all duration-300 overflow-hidden shadow-[0_0_15px_rgba(251,191,36,0.2)] hover:shadow-[0_0_25px_rgba(251,191,36,0.6)]"
+              >
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  <Activity className="w-4 h-4 animate-pulse" />
+                  INITIATE PAIRING
+                </span>
+              </button>
+            )}
             <NodeTopology status={status} demoMode={demoMode} />
             <div className="flex items-center justify-between p-2 bg-black/50 border border-[#222] rounded backdrop-blur-md">
               <div className="flex flex-col">
